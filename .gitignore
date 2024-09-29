@@ -34,3 +34,7 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# comfyUI Symlinks directory
+/comfy_outputs/*
+!/comfy_outputs/put_symlinks_here.txt
