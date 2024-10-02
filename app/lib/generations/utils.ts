@@ -2,7 +2,6 @@ import exifr from 'exifr';
 import fs from 'fs';
 import path from 'path';
 
-// const imagePath = path.resolve(process.cwd(), 'comfy_outputs/ComfyUI_02194_.png');
 export const getExifDataFromImage = async (imagePath: string) => {
     const resolvedImagePath = path.resolve(process.cwd(), imagePath);
 
