@@ -26,8 +26,10 @@ export default async function GenerationsGallery({
                             <Image
                                 src={`/api/images/${encodeURIComponent(generation.file_location)}`}
                                 alt={generation.name}
+                                priority
                                 fill
-                                objectFit="cover"
+                                style={{objectFit:"cover"}}
+                                sizes="20vw"
                             />
                         </div>
                     ))}

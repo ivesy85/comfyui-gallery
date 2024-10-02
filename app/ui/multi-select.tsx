@@ -2,7 +2,7 @@
 
 import { useDebouncedCallback } from 'use-debounce';
 import { useSearchParams, usePathname, useRouter } from 'next/navigation';
-import Select, { MultiValue } from 'react-select';
+import Select, { components, MultiValue } from 'react-select';
 import { useState } from 'react';
 
 type Option = {
@@ -56,6 +56,7 @@ export default function MultiSelect({
   return (
     <div className="relative flex flex-1 flex-shrink-0">
         <Select
+            instanceId={searchParam}
             isMulti
             options={options}
             value={selectedOptions}
@@ -94,6 +95,11 @@ export default function MultiSelect({
                     backgroundColor: 'rgb(107 114 128 / 1)',
                 }),
               }}
+            components={{
+                Input: (props) => (
+                    <components.Input {...props} aria-activedescendant={undefined} />
+                ),
+            }}
       />
     </div>
   );
