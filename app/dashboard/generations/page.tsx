@@ -21,10 +21,11 @@ export default async function Page({
         page?: string;
     };
 }) {
-    const exif = searchParams?.exif || '';
-    const models = searchParams?.models || '';
-    const loras = searchParams?.loras || '';
-    const currentPage = Number(searchParams?.page) || 1;
+    const fuckYou = await searchParams;
+    const exif = fuckYou?.exif || '';
+    const models = fuckYou?.models || '';
+    const loras = fuckYou?.loras || '';
+    const currentPage = Number(fuckYou?.page) || 1;
 
     const totalPages = await fetchGenerationsPages(exif, models, loras);
 
