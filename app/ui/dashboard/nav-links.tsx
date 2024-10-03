@@ -16,7 +16,7 @@ const links = [
     href: '/dashboard/generations',
     icon: PhotoIcon,
   },
-  { name: 'Models', href: '/dashboard/models', icon: DocumentIcon },
+  { name: 'Checkpoints', href: '/dashboard/checkpoints', icon: DocumentIcon },
   { name: 'Loras', href: '/dashboard/loras', icon: DocumentIcon },
   { name: 'Embeddings', href: '/dashboard/embeddings', icon: DocumentIcon },
 ];

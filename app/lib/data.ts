@@ -1,5 +1,5 @@
 import { connectionPool } from '../../db';
-import { Generation } from './definitions';
+import { Generation } from './generations/definitions';
 
 
 
@@ -7,7 +7,7 @@ const ITEMS_PER_PAGE = 30;
 function constructGenerationsQuery(
     count: boolean,
     exif: string,
-    models: string,
+    checkpoints: string,
     loras: string,
     currentPage?: number
 ) {
@@ -42,23 +42,23 @@ function constructGenerationsQuery(
         params.push(`%${exif}%`);
     }
 
-    if (models) {
-        const modelIds = decodeURIComponent(models)
+    if (checkpoints) {
+        const checkpointIds = decodeURIComponent(checkpoints)
             .split(',')
             .map(id => Number(id))
             .filter(id => !isNaN(id));
-        //joins += ` JOIN generation_models ON generations.id = generation_models.generation_id AND generation_models.model_id = ANY($${params.length + 1}::int[])`;
+        //joins += ` JOIN generation_checkpoints ON generations.id = generation_checkpoints.generation_id AND generation_checkpoints.checkpoint_id = ANY($${params.length + 1}::int[])`;
         joins += `
             JOIN (
                 SELECT generation_id
-                FROM generation_models
-                WHERE model_id = ANY($${params.length + 1}::int[])
+                FROM generation_checkpoints
+                WHERE checkpoint_id = ANY($${params.length + 1}::int[])
                 GROUP BY generation_id
-                HAVING COUNT(DISTINCT model_id) = ${modelIds.length}
-            ) model_filter
-            ON generations.id = model_filter.generation_id
+                HAVING COUNT(DISTINCT checkpoint_id) = ${checkpointIds.length}
+            ) checkpoint_filter
+            ON generations.id = checkpoint_filter.generation_id
         `;
-        params.push(modelIds);
+        params.push(checkpointIds);
     }
 
     if (loras) {
@@ -100,11 +100,11 @@ function constructGenerationsQuery(
 
 export async function fetchFilteredGenerations(
     exif: string,
-    models: string,
+    checkpoints: string,
     loras: string,
     currentPage: number
 ) {
-    const { query, params } = constructGenerationsQuery(false, exif, models, loras, currentPage);
+    const { query, params } = constructGenerationsQuery(false, exif, checkpoints, loras, currentPage);
 
     try {
         const result = await connectionPool.query<Generation>(query, params);
@@ -118,10 +118,10 @@ export async function fetchFilteredGenerations(
 
 export async function fetchGenerationsPages(
     exif: string,
-    models: string,
+    checkpoints: string,
     loras: string
 ) {
-    const { query, params } = constructGenerationsQuery(true, exif, models, loras);
+    const { query, params } = constructGenerationsQuery(true, exif, checkpoints, loras);
 
     try {
         const count = await connectionPool.query(query, params);

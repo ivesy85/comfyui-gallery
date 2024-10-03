@@ -3,7 +3,7 @@ import { Metadata } from 'next';
 import path from 'path';
 
 export const metadata: Metadata = {
-    title: 'Models',
+    title: 'Checkpoints',
   };
   
 export default async function Page() {
@@ -16,6 +16,6 @@ export default async function Page() {
     }
 
     return (
-        <p>Models</p>
+        <p>Checkpoints</p>
     );
 }

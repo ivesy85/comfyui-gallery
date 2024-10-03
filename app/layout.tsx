@@ -19,7 +19,7 @@ export const metadata: Metadata = {
     template: '%s | ComfyUI Gallery',
     default: 'ComfyUI Gallery',
   },
-  description: "A gallery for comfyui generations, models, loras etc",
+  description: "A gallery for comfyui generations, checkpoints, loras etc",
 };
 
 export default function RootLayout({

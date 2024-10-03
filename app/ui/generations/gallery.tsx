@@ -3,16 +3,16 @@ import { fetchFilteredGenerations } from '@/app/lib/data';
 
 export default async function GenerationsGallery({
     exif,
-    models,
+    checkpoints,
     loras,
     currentPage,
 }: {
     exif: string;
-    models: string;
+    checkpoints: string;
     loras: string;
     currentPage: number;
 }) {
-  const generations = await fetchFilteredGenerations(exif, models, loras, currentPage);
+  const generations = await fetchFilteredGenerations(exif, checkpoints, loras, currentPage);
 
     return (
         <div className="mt-6 flow-root">

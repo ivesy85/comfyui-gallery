@@ -1,6 +1,7 @@
 import exifr from 'exifr';
 import fs from 'fs';
 import path from 'path';
+import { RawComfyUIJson } from '@/app/lib/generations/definitions';
 
 export const getExifDataFromImage = async (imagePath: string) => {
     const resolvedImagePath = path.resolve(process.cwd(), imagePath);
@@ -10,7 +11,7 @@ export const getExifDataFromImage = async (imagePath: string) => {
         const imageBuffer = fs.readFileSync(resolvedImagePath);
     
         // Extract metadata from the image buffer
-        const metadata = await exifr.parse(imageBuffer);
+        const metadata: RawComfyUIJson = await exifr.parse(imageBuffer);
 
         if (metadata.prompt && typeof metadata.prompt === 'string') {
             try {
@@ -42,3 +43,45 @@ export const getExifDataFromImage = async (imagePath: string) => {
         return { success: false, error: 'An unknown error occurred' };
     }
 };
+
+export const extractCkptNamesFromExifData = (jsonData: RawComfyUIJson) => {
+    const ckptNames = [];
+  
+    // Ensure 'prompt' is an object, not a string
+    if (typeof jsonData.prompt === 'object') {
+        // Loop through each key in the 'prompt' object
+        for (const key in jsonData.prompt) {
+            if (jsonData.prompt.hasOwnProperty(key)) {
+                const promptEntry = jsonData.prompt[key];
+          
+                // Check if class_type is 'CheckpointLoaderSimple'
+                if (promptEntry.class_type === 'CheckpointLoaderSimple') {
+                  ckptNames.push(promptEntry.inputs);
+                }
+              }
+        }
+    }
+  
+    return ckptNames;
+  };
+
+  export const extractLoraNamesFromExifData = (jsonData: RawComfyUIJson) => {
+    const loraNames = [];
+  
+    // Ensure 'prompt' is an object, not a string
+    if (typeof jsonData.prompt === 'object') {
+        // Loop through each key in the 'prompt' object
+        for (const key in jsonData.prompt) {
+            if (jsonData.prompt.hasOwnProperty(key)) {
+                const promptEntry = jsonData.prompt[key];
+          
+                // Check if class_type is 'LoraLoader'
+                if (promptEntry.class_type === 'LoraLoader') {
+                    loraNames.push(promptEntry.inputs);
+                }
+              }
+        }
+    }
+  
+    return loraNames;
+  };
