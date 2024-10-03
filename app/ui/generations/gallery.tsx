@@ -1,5 +1,5 @@
 import Image from 'next/image';
-import { fetchFilteredGenerations } from '@/app/lib/data';
+import { fetchFilteredGenerations } from '@/app/lib/generations/data';
 
 export default async function GenerationsGallery({
     exif,

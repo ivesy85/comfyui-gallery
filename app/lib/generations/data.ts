@@ -150,8 +150,32 @@ export async function fetchGenerationsPages(
 
   export async function saveGenerationEntry(
     imagePath: string,
+    update: boolean = false
 ) {
+    let generationId: number | null = null;
+
     const resolvedImagePath = path.resolve(process.cwd(), imagePath);
+
+    // Check if the file type already exists
+    const result = await connectionPool.query<{ id: number }>('SELECT id FROM generations WHERE file_location = $1', [resolvedImagePath]);
+
+    if (result.rows.length > 0) {
+        // Already exists in db
+        generationId = result.rows[0].id;
+        if (update) {
+            // Delete prior entry
+            await connectionPool.query(
+                `
+                    DELETE FROM generation_checkpoints WHERE generation_id = $1;
+                    DELETE FROM generation_loras WHERE generation_id = $1;
+                    DELETE FROM generations WHERE id = $1;
+                `,
+                [generationId]
+            );
+        } else {
+            return { success: true, generationId };
+        }
+    }
 
     try {
         const file_type = path.extname(imagePath).substring(1).toLowerCase(); // Get the file extension without the dot
@@ -168,11 +192,11 @@ export async function fetchGenerationsPages(
 
         // Check for Checkpoints
         const ckpts = extractCkptNamesFromExifData(exifResult.metadata);
-        const ckptIds = await getOrCreateCheckpoints(ckpts);
+        const ckptIds = ckpts.length > 0 ? await getOrCreateCheckpoints(ckpts) : [];
 
         // Check for Loras
         const loras = extractLoraNamesFromExifData(exifResult.metadata);
-        const loraIds = await getOrCreateLoras(loras);
+        const loraIds = loras.length > 0 ? await getOrCreateLoras(loras) : [];
 
         // Extract the date created from EXIF data or fall back to the file's stats
         const stats = fs.statSync(resolvedImagePath);
@@ -187,7 +211,7 @@ export async function fetchGenerationsPages(
         const size = fs.statSync(imagePath).size; // Get file size in bytes
 
         // Insert the new generation into the database
-        const result = await connectionPool.query(
+        const result = await connectionPool.query<{ id: number }>(
             `INSERT INTO generations (
                 file_type_id,
                 name,
@@ -200,15 +224,70 @@ export async function fetchGenerationsPages(
             ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id`,
             [file_type_id, name, fileLocation, width, height, imageCreationDate, size, rawJson]
         );
-        const generationId = result.rows[0].id;
+        generationId = result.rows[0].id;
 
         // Link Checkpoints and Loras
-        await linkCheckpointsToGeneration(ckptIds, generationId);
-        await linkLorasToGeneration(loraIds, generationId);
+        if (ckptIds.length > 0) {
+            await linkCheckpointsToGeneration(ckptIds, generationId);
+        }
+        if (loraIds.length > 0) {
+            await linkLorasToGeneration(loraIds, generationId);
+        }
 
         return { success: true, generationId };
     } catch (error) {
         console.error('Failed to save generation entry:', error);
         return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+    }
+}
+
+export async function getGenerationLocations(): Promise<string[]> {
+    try {
+        const result = await connectionPool.query(`
+            SELECT location
+            FROM generation_locations;
+        `);
+
+        // Return an array of location strings
+        return result.rows.map(row => row.location);
+    } catch (error) {
+        console.error('Error fetching generation locations:', error);
+        throw new Error('Failed to fetch generation locations');
+    }
+}
+
+export async function processAllGenerationLocations() {
+    try {
+        // Step 1: Retrieve all directory locations
+        const locations = await getGenerationLocations();
+
+        // Step 2: Loop through each location and call findAndProcessPngFiles
+        for (const location of locations) {
+            console.log(`Processing PNG files in directory: ${location}`);
+            await findAndProcessPngFiles(location); // Assuming this is the previously defined function
+        }
+    } catch (error) {
+        console.error('Error processing generation locations:', error);
+        throw new Error('Failed to process generation locations');
+    }
+}
+
+export async function findAndProcessPngFiles(dirPath: string) {
+    // Read all files and directories in the given path
+    const files = fs.readdirSync(dirPath);
+
+    for (const file of files) {
+        const filePath = path.join(dirPath, file);
+
+        // Get stats to determine if it's a file or directory
+        const fileStats = fs.statSync(filePath);
+
+        if (fileStats.isDirectory()) {
+            // If it's a directory, recursively call findAndProcessPngFiles
+            await findAndProcessPngFiles(filePath);
+        } else if (fileStats.isFile() && path.extname(file).toLowerCase() === '.png') {
+            // If it's a PNG file, call the processing function
+            await saveGenerationEntry(filePath);
+        }
     }
 }
