@@ -4,7 +4,7 @@ import Pagination from '@/app/ui/pagination';
 import Gallery from '@/app/ui/generations/gallery';
 import { GenerationsGallerySkeleton } from '@/app/ui/skeletons';
 import { Suspense } from 'react';
-import { fetchGenerationsPages } from '@/app/lib/data';
+import { fetchGenerationsPages } from '@/app/lib/generations/data';
 import { getListOfCheckpoints } from '@/app/lib/checkpoints/data';
 import { getListOfLoras } from '@/app/lib/loras/data';
 import { Metadata } from 'next';

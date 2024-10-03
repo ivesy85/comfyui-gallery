@@ -1,4 +1,4 @@
-import { saveGenerationEntry } from '@/app/lib/actions';
+import { saveGenerationEntry } from '@/app/lib/generations/data';
 import { Metadata } from 'next';
 import path from 'path';
 
