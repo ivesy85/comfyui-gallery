@@ -196,7 +196,7 @@ export async function fetchGenerationsPages(
 
         // Check for Loras
         const loras = extractLoraNamesFromExifData(exifResult.metadata);
-        const loraIds = loras.length > 0 ? await getOrCreateLoras(loras) : [];
+        const lorasWithIds = loras.length > 0 ? await getOrCreateLoras(loras) : [];
 
         // Extract the date created from EXIF data or fall back to the file's stats
         const stats = fs.statSync(resolvedImagePath);
@@ -230,8 +230,8 @@ export async function fetchGenerationsPages(
         if (ckptIds.length > 0) {
             await linkCheckpointsToGeneration(ckptIds, generationId);
         }
-        if (loraIds.length > 0) {
-            await linkLorasToGeneration(loraIds, generationId);
+        if (lorasWithIds.length > 0) {
+            await linkLorasToGeneration(lorasWithIds, generationId);
         }
 
         return { success: true, generationId };

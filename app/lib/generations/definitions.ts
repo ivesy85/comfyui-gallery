@@ -37,6 +37,10 @@ export type RawComfyUIPromptJson =
     | {
         class_type: 'LoraLoader';
         inputs: LoraLoaderInput;
+    }
+    | {
+        class_type: 'CR LoRA Stack';
+        inputs: CRLoRAStackInput;
     };
 
     export type CheckpointLoaderSimpleInput = {
@@ -55,3 +59,24 @@ export type RawComfyUIPromptJson =
         model: [string, number];
         clip: [string, number];
     };
+
+    export type CRLoRAStackInput = {
+        switch_1: 'On' | 'Off';
+        switch_2: 'On' | 'Off';
+        switch_3: 'On' | 'Off';
+        lora_name_1: string;
+        lora_name_2: string;
+        lora_name_3: string;
+        clip_weight_1: number;
+        clip_weight_2: number;
+        clip_weight_3: number;
+        model_weight_1: number;
+        model_weight_2: number;
+        model_weight_3: number;
+    };
+
+    export type LoraBase = {
+        lora_name: string;
+        strength_model: number;
+        strength_clip: number;
+    }

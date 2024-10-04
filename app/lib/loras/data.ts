@@ -1,5 +1,5 @@
 import { connectionPool } from '@/db';
-import { LoraLoaderInput } from '@/app/lib/generations/definitions'
+import { LoraBase } from '@/app/lib/generations/definitions'
 import { getOrCreateFileType } from '@/app/lib/file-types/data';
 
 export async function getListOfLoras() {
@@ -19,7 +19,7 @@ export async function getListOfLoras() {
 }
 
 // Helper function to get ids or insert new loras if they don't exist
-export async function getOrCreateLoras(loras: LoraLoaderInput[]): Promise<number[]> {
+export async function getOrCreateLoras(loras: LoraBase[]): Promise<Array<LoraBase & { id: number }>> {
     const ids: Record<string, number> = {}; // Object to store ids with names as keys
 
     // Extract lora names
@@ -67,22 +67,25 @@ export async function getOrCreateLoras(loras: LoraLoaderInput[]): Promise<number
         });
     }
 
-    // Step 4: Return the ids in the same order as the input array
-    return loraNames.map((name) => ids[name]);
+    // Step 4: Return the updated loras array with ids
+    return loras.map((lora) => ({
+        ...lora,
+        id: ids[lora.lora_name],
+    }));
 }
 
-export async function linkLorasToGeneration(loraIds: number[], generationId: number): Promise<void> {
-    if (loraIds.length === 0) {
+export async function linkLorasToGeneration(lorasWithIds: (LoraBase & { id: number })[], generationId: number): Promise<void> {
+    if (lorasWithIds.length === 0) {
         throw new Error('No lora IDs provided');
     }
 
     // Construct the query to insert links between lora_ids and generation_id
     const insertQuery = `
-        INSERT INTO generation_loras (generation_id, lora_id)
-        VALUES ${loraIds.map((_, i) => `($1, $${i + 2})`).join(', ')}
+        INSERT INTO generation_loras (generation_id, lora_id, model_strength, clip_strength)
+        VALUES ${lorasWithIds.map((_, i) => `($1, $${i * 3 + 2}, $${i * 3 + 3}, $${i * 3 + 4})`).join(', ')}
     `;
-
-    const insertParams = [generationId, ...loraIds];
+    
+    const insertParams = [generationId, ...lorasWithIds.flatMap((lora) => [lora.id, lora.strength_model, lora.strength_clip])];
 
     // Execute the query
     await connectionPool.query(insertQuery, insertParams);
