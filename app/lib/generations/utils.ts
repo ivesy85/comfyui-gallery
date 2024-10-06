@@ -4,6 +4,8 @@ import path from 'path';
 import {
     RawComfyUIJson,
     LoraBase,
+    KsamplerInput,
+    CheckpointLoaderSimpleInput,
 } from '@/app/lib/generations/definitions';
 
 export const getExifDataFromImage = async (imagePath: string) => {
@@ -48,7 +50,7 @@ export const getExifDataFromImage = async (imagePath: string) => {
 };
 
 export const extractCkptNamesFromExifData = (jsonData: RawComfyUIJson) => {
-    const ckptNames = [];
+    const ckpts = [];
   
     // Ensure 'prompt' is an object, not a string
     if (typeof jsonData.prompt === 'object') {
@@ -59,13 +61,36 @@ export const extractCkptNamesFromExifData = (jsonData: RawComfyUIJson) => {
           
                 // Check if class_type is 'CheckpointLoaderSimple'
                 if (promptEntry.class_type === 'CheckpointLoaderSimple') {
-                  ckptNames.push(promptEntry.inputs);
+                    promptEntry.inputs.key = key;
+                    ckpts.push(promptEntry.inputs);
                 }
               }
         }
     }
   
-    return ckptNames;
+    return ckpts;
+  };
+
+  export const extractPromptsFromExifData = (jsonData: RawComfyUIJson) => {
+    const prompts = [];
+
+    // Ensure 'prompt' is an object, not a string
+    if (typeof jsonData.prompt === 'object') {
+        // Loop through each key in the 'prompt' object
+        for (const key in jsonData.prompt) {
+            if (jsonData.prompt.hasOwnProperty(key)) {
+                const promptEntry = jsonData.prompt[key];
+          
+                // Check if class_type is 'CLIPTextEncode'
+                if (promptEntry.class_type === 'CLIPTextEncode') {
+                    promptEntry.inputs.key = key;
+                    prompts.push(promptEntry.inputs);
+                }
+              }
+        }
+    }
+  
+    return prompts;
   };
 
   export const extractLoraNamesFromExifData = (jsonData: RawComfyUIJson) => {
@@ -132,6 +157,64 @@ export const extractCkptNamesFromExifData = (jsonData: RawComfyUIJson) => {
   
     return loras;
   };
+
+  export const extractKsamplersFromExifData = (jsonData: RawComfyUIJson) => {
+    const ckptNames = [];
+  
+    // Ensure 'prompt' is an object, not a string
+    if (typeof jsonData.prompt === 'object') {
+        // Loop through each key in the 'prompt' object
+        for (const key in jsonData.prompt) {
+            if (jsonData.prompt.hasOwnProperty(key)) {
+                const promptEntry = jsonData.prompt[key];
+          
+                // Check if class_type is 'CheckpointLoaderSimple'
+                if (promptEntry.class_type === 'KSampler') {
+                  ckptNames.push(promptEntry.inputs);
+                }
+              }
+        }
+    }
+  
+    return ckptNames;
+  };
+
+  export const getCheckpointIdsForKSamplers = (
+        kSamplers: KsamplerInput[],
+        ckptsWithIds: (CheckpointLoaderSimpleInput & { id: number })[],
+        jsonData: RawComfyUIJson
+    ): number[] => {
+        // Helper function to recursively find the checkpoint ID
+        const findCheckpointId = (modelKey: string): number | null => {
+            // Try to find a match in the ckptsWithIds array
+            const foundObject = ckptsWithIds.find((obj) => obj.key === modelKey);
+
+            if (foundObject) {
+                return foundObject.id; // Return the found id
+            } else if (typeof jsonData.prompt === 'object') {
+                // If not found, iterate over the jsonData prompt entries
+                for (const key in jsonData.prompt) {
+                    if (jsonData.prompt.hasOwnProperty(key)) {
+                        const promptEntry = jsonData.prompt[key];
+                        // Need to cast promptEntry.inputs to any since typescript is getting confused by my union types. Will still fall back if it doesn't exisat
+                        if (key === modelKey && promptEntry.inputs && (promptEntry.inputs as any).model) {
+                            const newModelKey = (promptEntry.inputs as any).model[0];
+                            // Recursively call with the new model key
+                            return findCheckpointId(newModelKey);
+                        }
+                    }
+                }
+            }
+            return null; // Return null if no match is found
+        };
+
+        // Map over each kSampler and get its corresponding checkpoint ID
+        return kSamplers.map((kSampler) => {
+            const modelKey = kSampler.model[0];
+            const id = findCheckpointId(modelKey);
+            return id !== null ? id : -1; // Use -1 if no id is found
+        });
+    };
 
   function isLoraUnique(loras: LoraBase[], lora: LoraBase) {
     return !loras.some(

@@ -1,3 +1,4 @@
+// DB Types
 export type Generation = {
     id: number;
     file_type_id: number;
@@ -10,6 +11,24 @@ export type Generation = {
     date_created: string;
     size: number;
     raw_json: RawComfyUIJson;
+};
+
+export type Prompt = {
+    id?: number;
+    prompt: string;
+};
+
+export type KSampler = {
+    id?: number;
+    checkpoint_id: number;
+    positive_prompt_id: number;
+    negative_prompt_id: number;
+    seed: number;
+    steps: number;
+    cfg: number;
+    sampler_name: string;
+    scheduler: string;
+    denoise: number;
 };
 
 export type RawComfyUIJson = {
@@ -39,11 +58,24 @@ export type RawComfyUIPromptJson =
         inputs: LoraLoaderInput;
     }
     | {
+        class_type: 'CR Apply LoRA Stack';
+        inputs: CRApplyLoRAStackInput;
+    }
+    | {
         class_type: 'CR LoRA Stack';
         inputs: CRLoRAStackInput;
+    }
+    | {
+        class_type: 'KSampler';
+        inputs: KsamplerInput;
+    }
+    | {
+        class_type: 'CLIPTextEncode';
+        inputs: CLIPTextEncodeInput;
     };
 
     export type CheckpointLoaderSimpleInput = {
+        key?: string;
         ckpt_name: string;
     };
 
@@ -60,6 +92,12 @@ export type RawComfyUIPromptJson =
         clip: [string, number];
     };
 
+    export type CRApplyLoRAStackInput = {
+        clip: [string, number];
+        model: [string, number];
+        lora_stack: [string, number];
+    }
+
     export type CRLoRAStackInput = {
         switch_1: 'On' | 'Off';
         switch_2: 'On' | 'Off';
@@ -75,8 +113,27 @@ export type RawComfyUIPromptJson =
         model_weight_3: number;
     };
 
+    export type KsamplerInput = {
+        cfg: number;
+        seed: number | [string, number];
+        model: [string, number];
+        steps: number;
+        denoise: number;
+        negative: [string, number];
+        positive: [string, number];
+        scheduler: string;
+        sampler_name: string;
+        latent_image: [string, number];
+    };
+
     export type LoraBase = {
         lora_name: string;
         strength_model: number;
         strength_clip: number;
     }
+
+    export type CLIPTextEncodeInput = {
+        key?: string;
+        text: string;
+        clip: [string, number];
+    };

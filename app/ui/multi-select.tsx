@@ -65,7 +65,7 @@ export default function MultiSelect({
             className="w-full"
             classNames={{
                 control: (state) => {
-                    const baseClasses = '!rounded-md !bg-white/5 !py-[1px] !text-sm !shadow-none';
+                    const baseClasses = '!rounded-md !bg-customGray !py-[1px] !text-sm !shadow-none';
                     const focusClasses = state.isFocused
                       ? '!border-pink-300 !outline-none'
                       : '!border-white/10 !outline-2';
@@ -77,7 +77,7 @@ export default function MultiSelect({
                 multiValueRemove: () =>
                     '!rounded-r-[2px] !rounded-l-none !bg-pink-300 !text-pink-800',
                 menu: () =>
-                    '!bg-white/5',
+                    '!bg-customGray',
                 option: (state) =>
                     state.isFocused ? '!bg-pink-300 !text-pink-800' : '',
             }}

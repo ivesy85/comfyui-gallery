@@ -19,7 +19,7 @@ export async function getListOfCheckpoints() {
 }
 
 // Helper function to get ids or insert new checkpoints if they don't exist
-export async function getOrCreateCheckpoints(checkpoints: CheckpointLoaderSimpleInput[]): Promise<number[]> {
+export async function getOrCreateCheckpoints(checkpoints: CheckpointLoaderSimpleInput[]): Promise<Array<CheckpointLoaderSimpleInput & { id: number }>> {
     const ids: Record<string, number> = {}; // Object to store ids with names as keys
 
     // Extract checkpoint names
@@ -67,22 +67,24 @@ export async function getOrCreateCheckpoints(checkpoints: CheckpointLoaderSimple
         });
     }
 
-    // Step 4: Return the ids in the same order as the input array
-    return checkpointNames.map((name) => ids[name]);
+    // Step 4: Return the updated checkpoints array with ids
+    return checkpoints.map((checkpoint) => ({
+        ...checkpoint,
+        id: ids[checkpoint.ckpt_name],
+    }));
 }
 
-export async function linkCheckpointsToGeneration(checkpointIds: number[], generationId: number): Promise<void> {
-    if (checkpointIds.length === 0) {
+export async function linkCheckpointsToGeneration(checkpointsWithIds: (CheckpointLoaderSimpleInput & { id: number })[], generationId: number): Promise<void> {
+    if (checkpointsWithIds.length === 0) {
         throw new Error('No checkpoint IDs provided');
     }
 
     // Construct the query to insert links between checkpoint_ids and generation_id
     const insertQuery = `
         INSERT INTO generation_checkpoints (generation_id, checkpoint_id)
-        VALUES ${checkpointIds.map((_, i) => `($1, $${i + 2})`).join(', ')}
+        VALUES ${checkpointsWithIds.map((_, i) => `($1, $${i + 2})`).join(', ')}
     `;
-
-    const insertParams = [generationId, ...checkpointIds];
+    const insertParams = [generationId, ...checkpointsWithIds.flatMap((chkpt) => [chkpt.id])];
 
     // Execute the query
     await connectionPool.query(insertQuery, insertParams);

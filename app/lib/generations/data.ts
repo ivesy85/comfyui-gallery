@@ -6,6 +6,8 @@ import {
     getExifDataFromImage,
     extractCkptNamesFromExifData,
     extractLoraNamesFromExifData,
+    extractPromptsFromExifData,
+    extractKsamplersFromExifData,
 } from './utils';
 import { getOrCreateFileType } from '@/app/lib/file-types/data';
 import { 
@@ -16,6 +18,13 @@ import {
     getOrCreateLoras,
     linkLorasToGeneration,
  } from '@/app/lib/loras/data';
+ import {
+    getOrCreatePrompts,
+ } from '@/app/lib/prompts/data'
+ import {
+    createKSamplers,
+    linkKSamplersToGeneration,
+ } from '@/app/lib/ksamplers/data'
 
 
 
@@ -190,13 +199,22 @@ export async function fetchGenerationsPages(
 
         const metadata = exifResult.metadata;
 
-        // Check for Checkpoints
+        // Save or get Checkpoints
         const ckpts = extractCkptNamesFromExifData(exifResult.metadata);
-        const ckptIds = ckpts.length > 0 ? await getOrCreateCheckpoints(ckpts) : [];
+        const ckptsWithIds = ckpts.length > 0 ? await getOrCreateCheckpoints(ckpts) : [];
 
-        // Check for Loras
+        // Save or get Loras
         const loras = extractLoraNamesFromExifData(exifResult.metadata);
         const lorasWithIds = loras.length > 0 ? await getOrCreateLoras(loras) : [];
+
+        // Save or get Prompts
+        const prompts = extractPromptsFromExifData(exifResult.metadata);
+        const promptsWithIds = prompts.length > 0 ? await getOrCreatePrompts(prompts) : [];
+
+        // TODO: Change prompts from 1:1 relationship to many:many incase of embedding combine
+        // Save KSamplers
+        const kSamplers = extractKsamplersFromExifData(exifResult.metadata);
+        const kSamplersWithIds = kSamplers.length > 0 ? await createKSamplers(kSamplers, ckptsWithIds, promptsWithIds, exifResult.metadata) : [];
 
         // Extract the date created from EXIF data or fall back to the file's stats
         const stats = fs.statSync(resolvedImagePath);
@@ -227,11 +245,14 @@ export async function fetchGenerationsPages(
         generationId = result.rows[0].id;
 
         // Link Checkpoints and Loras
-        if (ckptIds.length > 0) {
-            await linkCheckpointsToGeneration(ckptIds, generationId);
+        if (ckptsWithIds.length > 0) {
+            await linkCheckpointsToGeneration(ckptsWithIds, generationId);
         }
         if (lorasWithIds.length > 0) {
             await linkLorasToGeneration(lorasWithIds, generationId);
+        }
+        if (kSamplers.length > 0) {
+            await linkKSamplersToGeneration(kSamplersWithIds, generationId);
         }
 
         return { success: true, generationId };
