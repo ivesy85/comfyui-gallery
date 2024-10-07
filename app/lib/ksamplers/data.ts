@@ -5,7 +5,10 @@ import {
     CLIPTextEncodeInput,
     RawComfyUIJson,
 } from '../generations/definitions';
-import { getCheckpointIdsForKSamplers } from '../generations/utils';
+import {
+    getCheckpointIdsForKSamplers,
+    getSeedsForKSamplers,
+} from '../generations/utils';
 
 // Helper function to get ids or insert new loras if they don't exist
 export async function createKSamplers(
@@ -39,14 +42,16 @@ export async function createKSamplers(
             return foundObject ? foundObject.id : null;
         });
 
+        // Map corresponding seeds
+        const seeds = getSeedsForKSamplers(kSamplers, jsonData);
+
         const insertQuery = `
             INSERT INTO k_samplers (checkpoint_id, positive_prompt_id, negative_prompt_id, seed, steps, cfg, sampler_name, scheduler, denoise)
             VALUES ${kSamplers.map((_, i) => `($${i * 9 + 1}, $${i * 9 + 2}, $${i * 9 + 3}, $${i * 9 + 4}, $${i * 9 + 5}, $${i * 9 + 6}, $${i * 9 + 7}, $${i * 9 + 8}, $${i * 9 + 9})`).join(', ')}
             RETURNING id
         `;
 
-        // chkptIds[i], positivePromptIds[i], negativePromptIds[i], kSampler.seed, kSampler.steps, kSampler.cfg, kSampler.sampler_name, kSampler.scheduler, kSampler.denoise
-        const insertParams = kSamplers.flatMap((kSampler, i) => [chkptIds[i], positivePromptIds[i], negativePromptIds[i], 123, kSampler.steps, kSampler.cfg, kSampler.sampler_name, kSampler.scheduler, kSampler.denoise]);
+        const insertParams = kSamplers.flatMap((kSampler, i) => [chkptIds[i], positivePromptIds[i], negativePromptIds[i], seeds[i], kSampler.steps, kSampler.cfg, kSampler.sampler_name, kSampler.scheduler, kSampler.denoise]);
 
         const insertResult = await connectionPool.query(insertQuery, insertParams);
 
