@@ -28,7 +28,7 @@ import {
 
 
 
-const ITEMS_PER_PAGE = 30;
+const ITEMS_PER_PAGE = 24;
 function constructGenerationsQuery(
     count: boolean,
     exif: string,

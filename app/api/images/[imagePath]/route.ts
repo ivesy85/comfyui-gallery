@@ -1,21 +1,15 @@
+import { NextRequest, NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
-import { NextRequest, NextResponse } from 'next/server';
-
-// Map extensions to MIME types
-const mimeTypes: { [key: string]: string } = {
-    '.png': 'image/png',
-    '.jpg': 'image/jpeg',
-    '.jpeg': 'image/jpeg',
-    '.gif': 'image/gif',
-    '.webp': 'image/webp',
-  };
+import mimeTypes from 'mime-types';
 
 export async function GET(req: NextRequest, { params }: { params: { imagePath: string } }) {
-    const imagePath = decodeURIComponent(params.imagePath);
+    const { imagePath } = await params;
+
+    const decodedImagePath = decodeURIComponent(imagePath);
 
     // Resolve the image path based on the stored file_location
-    const resolvedImagePath = path.resolve(process.cwd(), imagePath);
+    const resolvedImagePath = path.resolve(process.cwd(), decodedImagePath);
 
     try {
         if (fs.existsSync(resolvedImagePath)) {
@@ -23,7 +17,7 @@ export async function GET(req: NextRequest, { params }: { params: { imagePath: s
             const fileExtension = path.extname(resolvedImagePath).toLowerCase();
 
             // Set the Content-Type header dynamically based on the file extension
-            const contentType = mimeTypes[fileExtension] || 'application/octet-stream'; // Default to binary if unknown
+            const contentType = mimeTypes.lookup(fileExtension) || 'application/octet-stream'; // Default to binary if unknown
 
             // Read the image file as a buffer
             const imageBuffer = fs.readFileSync(resolvedImagePath);
