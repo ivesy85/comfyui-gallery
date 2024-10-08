@@ -6,6 +6,7 @@ import {
     LoraBase,
     KsamplerInput,
     CheckpointLoaderSimpleInput,
+    CLIPTextEncodeInput,
 } from '@/app/lib/generations/definitions';
 
 export const getExifDataFromImage = async (imagePath: string) => {
@@ -214,6 +215,49 @@ export const getCheckpointIdsForKSamplers = (
         const id = findCheckpointId(modelKey);
         return id !== null ? id : -1; // Use -1 if no id is found
     });
+};
+
+export const getPromptIdsForKSamplers = (
+    kSamplers: KsamplerInput[],
+    promptsWithIds: (CLIPTextEncodeInput & { id: number })[],
+    jsonData: RawComfyUIJson
+): { positivePromptIds: number[], negativePromptIds: number[] } => {
+    // Helper function to recursively find the prompt ID
+    const findPromptId = (promptKey: string): number | null => {
+        // Try to find a match in the promptsWithIds array
+        const foundObject = promptsWithIds.find((obj) => obj.key === promptKey);
+
+        if (foundObject) {
+            return foundObject.id; // Return the found id
+        } else if (typeof jsonData.prompt === 'object') {
+            // If not found, iterate over the jsonData prompt entries
+            for (const key in jsonData.prompt) {
+                if (jsonData.prompt.hasOwnProperty(key)) {
+                    const promptEntry = jsonData.prompt[key];
+                    // Need to cast promptEntry.inputs to any since typescript is getting confused by my union types. Will still fall back if it doesn't exisat
+                    if (key === promptKey && promptEntry.inputs && (promptEntry.inputs as any).conditioning) {
+                        const newPromptKey = (promptEntry.inputs as any).conditioning[0];
+                        // Recursively call with the new conditioning key
+                        return findPromptId(newPromptKey);
+                    }
+                }
+            }
+        }
+        return null; // Return null if no match is found
+    };
+
+    // Map over each kSampler and get its corresponding prompt ID
+    const positivePromptIds = kSamplers.map((kSampler) => {
+        const promptKey = kSampler.positive[0];
+        const id = findPromptId(promptKey);
+        return id !== null ? id : -1; // Use -1 if no id is found
+    });
+    const negativePromptIds = kSamplers.map((kSampler) => {
+        const promptKey = kSampler.negative[0];
+        const id = findPromptId(promptKey);
+        return id !== null ? id : -1; // Use -1 if no id is found
+    });
+    return { positivePromptIds, negativePromptIds }
 };
 
 export const getSeedsForKSamplers = (

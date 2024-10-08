@@ -7,6 +7,7 @@ import {
 } from '../generations/definitions';
 import {
     getCheckpointIdsForKSamplers,
+    getPromptIdsForKSamplers,
     getSeedsForKSamplers,
 } from '../generations/utils';
 
@@ -28,19 +29,8 @@ export async function createKSamplers(
         // Map corresponding checkpoint ids
         const chkptIds = getCheckpointIdsForKSamplers(kSamplers, ckptsWithIds, jsonData);
 
-        // Map corresponding positive prompt ids
-        const positivePromptIds = kSamplers.map((kSampler) => {
-            const foundObject = promptsWithIds.find((obj) => obj.key === kSampler.positive[0]);
-            
-            return foundObject ? foundObject.id : null;
-        });
-
-        // Map corresponding negative prompt ids
-        const negativePromptIds = kSamplers.map((kSampler) => {
-            const foundObject = promptsWithIds.find((obj) => obj.key === kSampler.negative[0]);
-            
-            return foundObject ? foundObject.id : null;
-        });
+        // Map corresponding positive & negative prompt ids
+        const { positivePromptIds, negativePromptIds } = getPromptIdsForKSamplers(kSamplers, promptsWithIds, jsonData);
 
         // Map corresponding seeds
         const seeds = getSeedsForKSamplers(kSamplers, jsonData);
