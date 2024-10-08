@@ -223,7 +223,7 @@ export const getPromptIdsForKSamplers = (
     jsonData: RawComfyUIJson
 ): { positivePromptIds: number[], negativePromptIds: number[] } => {
     // Helper function to recursively find the prompt ID
-    const findPromptId = (promptKey: string): number | null => {
+    const findPromptId = (promptKey: string, targetNode: string): number | null => {
         // Try to find a match in the promptsWithIds array
         const foundObject = promptsWithIds.find((obj) => obj.key === promptKey);
 
@@ -235,10 +235,16 @@ export const getPromptIdsForKSamplers = (
                 if (jsonData.prompt.hasOwnProperty(key)) {
                     const promptEntry = jsonData.prompt[key];
                     // Need to cast promptEntry.inputs to any since typescript is getting confused by my union types. Will still fall back if it doesn't exisat
+                    if (key === promptKey && promptEntry.inputs && (promptEntry.inputs as any)[targetNode]) {
+                        const newPromptKey = (promptEntry.inputs as any)[targetNode][0];
+                        // Recursively call with the new conditioning key
+                        return findPromptId(newPromptKey, targetNode);
+                    }
+                    // Could also be refered to as conditioning in some nodes
                     if (key === promptKey && promptEntry.inputs && (promptEntry.inputs as any).conditioning) {
                         const newPromptKey = (promptEntry.inputs as any).conditioning[0];
                         // Recursively call with the new conditioning key
-                        return findPromptId(newPromptKey);
+                        return findPromptId(newPromptKey, targetNode);
                     }
                 }
             }
@@ -249,12 +255,12 @@ export const getPromptIdsForKSamplers = (
     // Map over each kSampler and get its corresponding prompt ID
     const positivePromptIds = kSamplers.map((kSampler) => {
         const promptKey = kSampler.positive[0];
-        const id = findPromptId(promptKey);
+        const id = findPromptId(promptKey, 'positive');
         return id !== null ? id : -1; // Use -1 if no id is found
     });
     const negativePromptIds = kSamplers.map((kSampler) => {
         const promptKey = kSampler.negative[0];
-        const id = findPromptId(promptKey);
+        const id = findPromptId(promptKey, 'negative');
         return id !== null ? id : -1; // Use -1 if no id is found
     });
     return { positivePromptIds, negativePromptIds }
