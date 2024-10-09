@@ -10,6 +10,7 @@ import {
     getPromptIdsForKSamplers,
     getSeedsForKSamplers,
 } from '../generations/utils';
+import { linkNegativePromptsToKSampler, linkPositivePromptsToKSampler } from '../prompts/data';
 
 // Helper function to get ids or insert new loras if they don't exist
 export async function createKSamplers(
@@ -22,7 +23,7 @@ export async function createKSamplers(
     })[],
     jsonData: RawComfyUIJson
 ): Promise<Array<KsamplerInput & { id: number }>> {
-    const ids: number[] = [];
+    const savedKSamplerIds: number[] = [];
 
     // Insert kSamplers
     if (kSamplers.length > 0) {
@@ -36,25 +37,32 @@ export async function createKSamplers(
         const seeds = getSeedsForKSamplers(kSamplers, jsonData);
 
         const insertQuery = `
-            INSERT INTO k_samplers (checkpoint_id, positive_prompt_id, negative_prompt_id, seed, steps, cfg, sampler_name, scheduler, denoise)
-            VALUES ${kSamplers.map((_, i) => `($${i * 9 + 1}, $${i * 9 + 2}, $${i * 9 + 3}, $${i * 9 + 4}, $${i * 9 + 5}, $${i * 9 + 6}, $${i * 9 + 7}, $${i * 9 + 8}, $${i * 9 + 9})`).join(', ')}
+            INSERT INTO k_samplers (checkpoint_id, seed, steps, cfg, sampler_name, scheduler, denoise)
+            VALUES ${kSamplers.map((_, i) => `($${i * 7 + 1}, $${i * 7 + 2}, $${i * 7 + 3}, $${i * 7 + 4}, $${i * 7 + 5}, $${i * 7 + 6}, $${i * 7 + 7})`).join(', ')}
             RETURNING id
         `;
 
-        const insertParams = kSamplers.flatMap((kSampler, i) => [chkptIds[i], positivePromptIds[i], negativePromptIds[i], seeds[i], kSampler.steps, kSampler.cfg, kSampler.sampler_name, kSampler.scheduler, kSampler.denoise]);
+        const insertParams = kSamplers.flatMap((kSampler, i) => [chkptIds[i], seeds[i], kSampler.steps, kSampler.cfg, kSampler.sampler_name, kSampler.scheduler, kSampler.denoise]);
 
         const insertResult = await connectionPool.query(insertQuery, insertParams);
 
         // Store the new IDs in the ids array
         insertResult.rows.forEach((row) => {
-            ids.push(row.id);
+            savedKSamplerIds.push(row.id);
         });
+
+        if (positivePromptIds.length > 0) {
+            await linkPositivePromptsToKSampler(positivePromptIds, savedKSamplerIds);
+        }
+        if (positivePromptIds.length > 0) {
+            await linkNegativePromptsToKSampler(negativePromptIds, savedKSamplerIds);
+        }
     }
 
-    // Step 4: Return the updated ksamplers array with ids
+    // Return the updated ksamplers array with ids
     return kSamplers.map((kSampler, i) => ({
         ...kSampler,
-        id: ids[i],
+        id: savedKSamplerIds[i],
     }));
 }
 

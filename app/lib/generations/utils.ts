@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import exifr from 'exifr';
 import fs from 'fs';
 import path from 'path';
@@ -221,14 +222,15 @@ export const getPromptIdsForKSamplers = (
     kSamplers: KsamplerInput[],
     promptsWithIds: (CLIPTextEncodeInput & { id: number })[],
     jsonData: RawComfyUIJson
-): { positivePromptIds: number[], negativePromptIds: number[] } => {
+): { positivePromptIds: number[][], negativePromptIds: number[][] } => {
     // Helper function to recursively find the prompt ID
-    const findPromptId = (promptKey: string, targetNode: string): number | null => {
+    const findPromptIds = (promptKey: string, targetNode: string): number[] | null => {
         // Try to find a match in the promptsWithIds array
         const foundObject = promptsWithIds.find((obj) => obj.key === promptKey);
+        const ids: number[] = []; // Due to combine conditioning we can have multiple
 
         if (foundObject) {
-            return foundObject.id; // Return the found id
+            return [foundObject.id]; // Return the found id
         } else if (typeof jsonData.prompt === 'object') {
             // If not found, iterate over the jsonData prompt entries
             for (const key in jsonData.prompt) {
@@ -236,32 +238,61 @@ export const getPromptIdsForKSamplers = (
                     const promptEntry = jsonData.prompt[key];
                     // Need to cast promptEntry.inputs to any since typescript is getting confused by my union types. Will still fall back if it doesn't exisat
                     if (key === promptKey && promptEntry.inputs && (promptEntry.inputs as any)[targetNode]) {
-                        const newPromptKey = (promptEntry.inputs as any)[targetNode][0];
+                        const newKey = (promptEntry.inputs as any)[targetNode][0];
                         // Recursively call with the new conditioning key
-                        return findPromptId(newPromptKey, targetNode);
+                        const foundIds = findPromptIds(newKey, targetNode);
+                        if (foundIds !== null) {
+                            ids.push(...foundIds);
+                        }
                     }
                     // Could also be refered to as conditioning in some nodes
                     if (key === promptKey && promptEntry.inputs && (promptEntry.inputs as any).conditioning) {
-                        const newPromptKey = (promptEntry.inputs as any).conditioning[0];
+                        const newKey = (promptEntry.inputs as any).conditioning[0];
                         // Recursively call with the new conditioning key
-                        return findPromptId(newPromptKey, targetNode);
+                        const foundIds = findPromptIds(newKey, targetNode);
+                        if (foundIds !== null) {
+                            ids.push(...foundIds);
+                        }
+                    }
+                    if (key === promptKey && promptEntry.inputs && (promptEntry.inputs as any).conditioning_1) {
+                        const newKey = (promptEntry.inputs as any).conditioning_1[0];
+                        // Recursively call with the new conditioning_1 key
+                        const foundIds = findPromptIds(newKey, targetNode);
+                        if (foundIds !== null) {
+                            ids.push(...foundIds);
+                        }
+                    }
+                    if (key === promptKey && promptEntry.inputs && (promptEntry.inputs as any).conditioning_2) {
+                        const newKey = (promptEntry.inputs as any).conditioning_2[0];
+                        // Recursively call with the new conditioning_2 key
+                        const foundIds = findPromptIds(newKey, targetNode);
+                        if (foundIds !== null) {
+                            ids.push(...foundIds);
+                        }
                     }
                 }
             }
         }
-        return null; // Return null if no match is found
+
+        return ids.length > 0 ? ids : null;
     };
 
     // Map over each kSampler and get its corresponding prompt ID
     const positivePromptIds = kSamplers.map((kSampler) => {
         const promptKey = kSampler.positive[0];
-        const id = findPromptId(promptKey, 'positive');
-        return id !== null ? id : -1; // Use -1 if no id is found
+        const ids = findPromptIds(promptKey, 'positive');
+        if (ids === null) {
+            throw new Error('Unable to find positive prompt data');
+        }
+        return ids;
     });
     const negativePromptIds = kSamplers.map((kSampler) => {
         const promptKey = kSampler.negative[0];
-        const id = findPromptId(promptKey, 'negative');
-        return id !== null ? id : -1; // Use -1 if no id is found
+        const ids = findPromptIds(promptKey, 'negative');
+        if (ids === null) {
+            console.warn('Unable to find negative prompt data');
+        }
+        return ids !== null ? ids : [];
     });
     return { positivePromptIds, negativePromptIds }
 };

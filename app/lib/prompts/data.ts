@@ -47,3 +47,67 @@ export async function getOrCreatePrompts(prompts: CLIPTextEncodeInput[]): Promis
         id: ids[prompt.text],
     }));
 }
+
+export async function linkPositivePromptsToKSampler(positivePromptIds: number[][], savedKSamplerIds: number[]): Promise<void> {
+    if (positivePromptIds.length === 0) {
+        throw new Error('No positive prompts provided');
+    }
+
+    // Construct the query to insert links between KSamplers and prompts
+    let counter = 1;
+
+    // Generate the value placeholders with correct numbering for each (k_sampler_id, prompt_id) pair
+    const valuePlaceholders = positivePromptIds
+    .map((prompts) => 
+        prompts.map(() => `($${counter++}, $${counter++})`).join(', ')
+    )
+    .join(', ');
+    
+    const insertQuery = `
+        INSERT INTO k_sampler_positive_prompts (k_sampler_id, prompt_id)
+        VALUES ${valuePlaceholders}
+    `;
+    
+    // Flatten the arrays to build the values array that corresponds to the placeholders
+    const insertParams: number[] = [];
+    positivePromptIds.forEach((prompts, i) => {
+        prompts.forEach((promptId) => {
+            insertParams.push(savedKSamplerIds[i], promptId);
+        });
+    });
+
+    // Execute the query
+    await connectionPool.query(insertQuery, insertParams);
+}
+
+export async function linkNegativePromptsToKSampler(negativePromptIds: number[][], savedKSamplerIds: number[]): Promise<void> {
+    if (negativePromptIds.length === 0) {
+        throw new Error('No negative prompts provided');
+    }
+
+    // Construct the query to insert links between KSamplers and prompts
+    let counter = 1;
+
+    // Generate the value placeholders with correct numbering for each (k_sampler_id, prompt_id) pair
+    const valuePlaceholders = negativePromptIds
+    .map((prompts) => 
+        prompts.map(() => `($${counter++}, $${counter++})`).join(', ')
+    )
+    .join(', ');
+    
+    const insertQuery = `
+        INSERT INTO k_sampler_negative_prompts (k_sampler_id, prompt_id)
+        VALUES ${valuePlaceholders}
+    `;
+    
+    // Flatten the arrays to build the values array that corresponds to the placeholders
+    const insertParams: number[] = [];
+    negativePromptIds.forEach((prompts, i) => {
+        prompts.forEach((promptId) => {
+            insertParams.push(savedKSamplerIds[i], promptId);
+        });
+    });
+
+    // Execute the query
+    await connectionPool.query(insertQuery, insertParams);
+}
