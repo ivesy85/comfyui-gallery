@@ -20,10 +20,16 @@ export const getExifDataFromImage = async (imagePath: string) => {
         // Extract metadata from the image buffer
         const metadata: RawComfyUIJson = await exifr.parse(imageBuffer);
 
+        const sanitizeJsonString = (jsonString: string) => {
+            // Replace any "NaN" occurrences with a valid value, such as `null`
+            return jsonString.replace(/NaN/g, 'null');
+        };
+
         if (metadata.prompt && typeof metadata.prompt === 'string') {
             try {
+                const sanitizedPrompt = sanitizeJsonString(metadata.prompt);
                 // Unescape and parse the prompt string as JSON
-                const unescapedPrompt = JSON.parse(metadata.prompt);
+                const unescapedPrompt = JSON.parse(sanitizedPrompt);
                 // Replace the original prompt string with the parsed object
                 metadata.prompt = unescapedPrompt;
             } catch (error) {
@@ -32,8 +38,9 @@ export const getExifDataFromImage = async (imagePath: string) => {
         }
         if (metadata.workflow && typeof metadata.workflow === 'string') {
             try {
+                const sanitizedPrompt = sanitizeJsonString(metadata.workflow);
                 // Unescape and parse the workflow string as JSON
-                const unescapedPrompt = JSON.parse(metadata.workflow);
+                const unescapedPrompt = JSON.parse(sanitizedPrompt);
                 // Replace the original workflow string with the parsed object
                 metadata.workflow = unescapedPrompt;
             } catch (error) {
