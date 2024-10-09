@@ -17,7 +17,7 @@ export default async function GenerationsGallery({
     return (
         <div className="mt-6 flow-root">
             <div className="inline-block min-w-full align-middle">
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 rounded-lg p-2 md:pt-0">
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-8 gap-4 rounded-lg p-2 md:pt-0">
                     {generations?.map((generation) => (
                         <div 
                             key={generation.id}
