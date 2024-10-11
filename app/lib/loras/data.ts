@@ -2,14 +2,101 @@ import { connectionPool } from '@/db';
 import { LoraBase } from '@/app/lib/generations/definitions'
 import { getOrCreateFileType } from '@/app/lib/file-types/data';
 
-export async function getListOfLoras() {
+export async function getListOfLoras(
+    exif: string,
+    checkpoints: string,
+    loras: string
+) {
+    if (!exif && !checkpoints && !loras) {
+        try {
+            const result = await connectionPool.query<{value: string, label: string}>(`
+                SELECT
+                    loras.id::text as value,
+                    loras.name as label
+                FROM loras;
+            `);
+    
+            return result.rows;
+        } catch (error) {
+            console.error('Database Error:', error);
+            throw new Error('Failed to fetch loras.');
+        }
+    }
+
+    let query = `
+        SELECT
+            loras.id::text as value,
+            loras.name as label
+        FROM generations
+    `;
+
+    let joins: string = '';
+    const conditions: string[] = [];
+    const params: (string | number[] | number)[] = [];
+
+    if (exif) {
+        conditions.push(`generations.raw_json::text ILIKE $${params.length + 1}`);
+        params.push(`%${exif}%`);
+    }
+
+    if (checkpoints) {
+        const checkpointIds = decodeURIComponent(checkpoints)
+            .split(',')
+            .map(id => Number(id))
+            .filter(id => !isNaN(id));
+        joins += `
+            JOIN (
+                SELECT generation_id
+                FROM generation_checkpoints
+                WHERE checkpoint_id = ANY($${params.length + 1}::int[])
+                GROUP BY generation_id
+                HAVING COUNT(DISTINCT checkpoint_id) = ${checkpointIds.length}
+            ) checkpoint_filter
+            ON generations.id = checkpoint_filter.generation_id
+        `;
+        params.push(checkpointIds);
+    }
+
+    if (loras) {
+        const loraIds = decodeURIComponent(loras)
+            .split(',')
+            .map(id => Number(id))
+            .filter(id => !isNaN(id));
+        joins += `
+            JOIN (
+                SELECT generation_id
+                FROM generation_loras
+                WHERE lora_id = ANY($${params.length + 1}::int[])
+                GROUP BY generation_id
+                HAVING COUNT(DISTINCT lora_id) = ${loraIds.length}
+            ) lora_filter
+            ON generations.id = lora_filter.generation_id
+        `;
+        params.push(loraIds);
+    }
+
+    if (joins) {
+        query += joins;
+    }
+
+    query += `
+        JOIN generation_loras ON generations.id = generation_loras.generation_id
+        JOIN loras ON generation_loras.lora_id = loras.id
+    `;
+
+    if (conditions.length > 0) {
+        query += ` WHERE ` + conditions.join(' AND ');
+    }
+
+    query += `
+        GROUP BY loras.id;
+    `;
+
     try {
-        const result = await connectionPool.query<{value: string, label: string}>(`
-            SELECT
-                loras.id::text as value,
-                loras.name as label
-            FROM loras;
-        `);
+        const result = await connectionPool.query<{value: string, label: string}>(
+            query,
+            params
+        );
 
         return result.rows;
     } catch (error) {

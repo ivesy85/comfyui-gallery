@@ -2,14 +2,101 @@ import { connectionPool } from '@/db';
 import { Auto1111CheckpointInput, CheckpointLoaderSimpleInput } from '@/app/lib/generations/definitions'
 import { getOrCreateFileType } from '@/app/lib/file-types/data';
 
-export async function getListOfCheckpoints() {
+export async function getListOfCheckpoints(
+    exif: string,
+    checkpoints: string,
+    loras: string
+) {
+    if (!exif && !checkpoints && !loras) {
+        try {
+            const result = await connectionPool.query<{value: string, label: string}>(`
+                SELECT
+                    checkpoints.id::text AS value,
+                    checkpoints.name AS label
+                FROM checkpoints;
+            `);
+    
+            return result.rows;
+        } catch (error) {
+            console.error('Database Error:', error);
+            throw new Error('Failed to fetch checkpoints.');
+        }
+    }
+    
+    let query = `
+        SELECT
+            checkpoints.id::text as value,
+            checkpoints.name as label
+        FROM generations
+    `;
+
+    let joins: string = '';
+    const conditions: string[] = [];
+    const params: (string | number[] | number)[] = [];
+
+    if (exif) {
+        conditions.push(`generations.raw_json::text ILIKE $${params.length + 1}`);
+        params.push(`%${exif}%`);
+    }
+
+    if (checkpoints) {
+        const checkpointIds = decodeURIComponent(checkpoints)
+            .split(',')
+            .map(id => Number(id))
+            .filter(id => !isNaN(id));
+        joins += `
+            JOIN (
+                SELECT generation_id
+                FROM generation_checkpoints
+                WHERE checkpoint_id = ANY($${params.length + 1}::int[])
+                GROUP BY generation_id
+                HAVING COUNT(DISTINCT checkpoint_id) = ${checkpointIds.length}
+            ) checkpoint_filter
+            ON generations.id = checkpoint_filter.generation_id
+        `;
+        params.push(checkpointIds);
+    }
+
+    if (loras) {
+        const loraIds = decodeURIComponent(loras)
+            .split(',')
+            .map(id => Number(id))
+            .filter(id => !isNaN(id));
+        joins += `
+            JOIN (
+                SELECT generation_id
+                FROM generation_loras
+                WHERE lora_id = ANY($${params.length + 1}::int[])
+                GROUP BY generation_id
+                HAVING COUNT(DISTINCT lora_id) = ${loraIds.length}
+            ) lora_filter
+            ON generations.id = lora_filter.generation_id
+        `;
+        params.push(loraIds);
+    }
+
+    if (joins) {
+        query += joins;
+    }
+
+    query += `
+        JOIN generation_checkpoints ON generations.id = generation_checkpoints.generation_id
+        JOIN checkpoints ON generation_checkpoints.checkpoint_id = checkpoints.id
+    `;
+
+    if (conditions.length > 0) {
+        query += ` WHERE ` + conditions.join(' AND ');
+    }
+
+    query += `
+        GROUP BY checkpoints.id;
+    `;
+
     try {
-        const result = await connectionPool.query<{value: string, label: string}>(`
-            SELECT
-                checkpoints.id::text AS value,
-                checkpoints.name AS label
-            FROM checkpoints;
-        `);
+        const result = await connectionPool.query<{value: string, label: string}>(
+            query,
+            params
+        );
 
         return result.rows;
     } catch (error) {

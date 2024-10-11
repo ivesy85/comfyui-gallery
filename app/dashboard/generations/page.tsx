@@ -31,8 +31,8 @@ export default async function Page({
 
     const totalPages = await fetchGenerationsPages(exif, checkpoints, loras);
 
-    const loraOptions = await getListOfLoras();
-    const checkpointOptions = await getListOfCheckpoints();
+    const loraOptions = await getListOfLoras(exif, checkpoints, loras);
+    const checkpointOptions = await getListOfCheckpoints(exif, checkpoints, loras);
 
     return (
         <div className="w-full">
