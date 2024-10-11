@@ -1,5 +1,5 @@
 import { connectionPool } from '@/db';
-import { CheckpointLoaderSimpleInput } from '@/app/lib/generations/definitions'
+import { Auto1111CheckpointInput, CheckpointLoaderSimpleInput } from '@/app/lib/generations/definitions'
 import { getOrCreateFileType } from '@/app/lib/file-types/data';
 
 export async function getListOfCheckpoints() {
@@ -19,7 +19,25 @@ export async function getListOfCheckpoints() {
 }
 
 // Helper function to get ids or insert new checkpoints if they don't exist
-export async function getOrCreateCheckpoints(checkpoints: CheckpointLoaderSimpleInput[]): Promise<Array<CheckpointLoaderSimpleInput & { id: number }>> {
+export async function getOrCreateComfyCheckpoints(checkpoints: CheckpointLoaderSimpleInput[]): Promise<Array<CheckpointLoaderSimpleInput & { id: number }>> {
+    const ids = await getOrCreateCheckpoints(checkpoints);
+
+    return checkpoints.map((checkpoint) => ({
+        ...checkpoint,
+        id: ids[checkpoint.ckpt_name],
+    }));
+}
+
+export async function getOrCreateAuto1111Checkpoints(checkpoints: Auto1111CheckpointInput[]): Promise<Array<Auto1111CheckpointInput & { id: number }>> {
+    const ids = await getOrCreateCheckpoints(checkpoints);
+
+    return checkpoints.map((checkpoint) => ({
+        ...checkpoint,
+        id: ids[checkpoint.ckpt_name],
+    }));
+}
+
+async function getOrCreateCheckpoints(checkpoints: { ckpt_name: string }[]) {
     const ids: Record<string, number> = {}; // Object to store ids with names as keys
 
     // Extract checkpoint names
@@ -67,11 +85,7 @@ export async function getOrCreateCheckpoints(checkpoints: CheckpointLoaderSimple
         });
     }
 
-    // Step 4: Return the updated checkpoints array with ids
-    return checkpoints.map((checkpoint) => ({
-        ...checkpoint,
-        id: ids[checkpoint.ckpt_name],
-    }));
+    return ids;
 }
 
 export async function linkCheckpointsToGeneration(checkpointsWithIds: (CheckpointLoaderSimpleInput & { id: number })[], generationId: number): Promise<void> {

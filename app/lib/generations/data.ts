@@ -11,7 +11,8 @@ import {
 } from './utils';
 import { getOrCreateFileType } from '@/app/lib/file-types/data';
 import { 
-    getOrCreateCheckpoints,
+    getOrCreateComfyCheckpoints,
+    getOrCreateAuto1111Checkpoints,
     linkCheckpointsToGeneration,
  } from '@/app/lib/checkpoints/data';
 import { 
@@ -19,10 +20,12 @@ import {
     linkLorasToGeneration,
  } from '@/app/lib/loras/data';
  import {
-    getOrCreatePrompts,
+    getOrCreateComfyPrompts,
+    getOrCreateAuto1111Prompts,
  } from '@/app/lib/prompts/data'
  import {
-    createKSamplers,
+     createAuto1111KSamplers,
+    createComfyKSamplers,
     linkKSamplersToGeneration,
  } from '@/app/lib/ksamplers/data'
 
@@ -201,20 +204,23 @@ export async function fetchGenerationsPages(
 
         // Save or get Checkpoints
         const ckpts = extractCkptNamesFromExifData(exifResult.metadata);
-        const ckptsWithIds = ckpts.length > 0 ? await getOrCreateCheckpoints(ckpts) : [];
+        const comfyCkptsWithIds = ckpts.comfyUI.length > 0 ? await getOrCreateComfyCheckpoints(ckpts.comfyUI) : [];
+        const auto1111CkptsWithIds = ckpts.auto1111.length > 0 ? await getOrCreateAuto1111Checkpoints(ckpts.auto1111) : [];
 
         // Save or get Loras
         const loras = extractLoraNamesFromExifData(exifResult.metadata);
-        const lorasWithIds = loras.length > 0 ? await getOrCreateLoras(loras) : [];
+        const comfyLorasWithIds = loras.comfyUI.length > 0 ? await getOrCreateLoras(loras.comfyUI) : [];
+        const auto1111LorasWithIds = loras.auto1111.length > 0 ? await getOrCreateLoras(loras.auto1111) : [];
 
         // Save or get Prompts
         const prompts = extractPromptsFromExifData(exifResult.metadata);
-        const promptsWithIds = prompts.length > 0 ? await getOrCreatePrompts(prompts) : [];
+        const comfyPromptsWithIds = prompts.comfyUI.length > 0 ? await getOrCreateComfyPrompts(prompts.comfyUI) : [];
+        const auto1111PromptsWithIds = prompts.auto1111.length > 0 ? await getOrCreateAuto1111Prompts(prompts.auto1111) : [];
 
-        // TODO: Change prompts from 1:1 relationship to many:many incase of embedding combine
         // Save KSamplers
         const kSamplers = extractKsamplersFromExifData(exifResult.metadata);
-        const kSamplersWithIds = kSamplers.length > 0 ? await createKSamplers(kSamplers, ckptsWithIds, promptsWithIds, exifResult.metadata) : [];
+        const comfyKSamplersWithIds = kSamplers.length > 0 ? await createComfyKSamplers(kSamplers, comfyCkptsWithIds, comfyPromptsWithIds, exifResult.metadata) : [];
+        const auto1111KSamplersWithIds = auto1111CkptsWithIds.length > 0 ? await createAuto1111KSamplers(auto1111CkptsWithIds, auto1111PromptsWithIds, exifResult.metadata) : [];
 
         // Extract the date created from EXIF data or fall back to the file's stats
         const stats = fs.statSync(resolvedImagePath);
@@ -245,14 +251,23 @@ export async function fetchGenerationsPages(
         generationId = result.rows[0].id;
 
         // Link Checkpoints and Loras
-        if (ckptsWithIds.length > 0) {
-            await linkCheckpointsToGeneration(ckptsWithIds, generationId);
+        if (comfyCkptsWithIds.length > 0) {
+            await linkCheckpointsToGeneration(comfyCkptsWithIds, generationId);
         }
-        if (lorasWithIds.length > 0) {
-            await linkLorasToGeneration(lorasWithIds, generationId);
+        if (auto1111CkptsWithIds.length > 0) {
+            await linkCheckpointsToGeneration(auto1111CkptsWithIds, generationId);
         }
-        if (kSamplers.length > 0) {
-            await linkKSamplersToGeneration(kSamplersWithIds, generationId);
+        if (comfyLorasWithIds.length > 0) {
+            await linkLorasToGeneration(comfyLorasWithIds, generationId);
+        }
+        if (auto1111LorasWithIds.length > 0) {
+            await linkLorasToGeneration(auto1111LorasWithIds, generationId);
+        }
+        if (comfyKSamplersWithIds.length > 0) {
+            await linkKSamplersToGeneration(comfyKSamplersWithIds, generationId);
+        }
+        if (auto1111KSamplersWithIds.length > 0) {
+            await linkKSamplersToGeneration(auto1111KSamplersWithIds, generationId);
         }
 
         return { success: true, generationId };

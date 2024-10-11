@@ -3,11 +3,14 @@ import exifr from 'exifr';
 import fs from 'fs';
 import path from 'path';
 import {
-    RawComfyUIJson,
+    RawExifJson,
     LoraBase,
     KsamplerInput,
     CheckpointLoaderSimpleInput,
     CLIPTextEncodeInput,
+    RawAutomatic1111ParametersJson,
+    Auto1111PromptInput,
+    Auto1111CheckpointInput,
 } from '@/app/lib/generations/definitions';
 
 export const getExifDataFromImage = async (imagePath: string) => {
@@ -18,7 +21,7 @@ export const getExifDataFromImage = async (imagePath: string) => {
         const imageBuffer = fs.readFileSync(resolvedImagePath);
     
         // Extract metadata from the image buffer
-        const metadata: RawComfyUIJson = await exifr.parse(imageBuffer);
+        const metadata: RawExifJson = await exifr.parse(imageBuffer);
 
         const sanitizeJsonString = (jsonString: string) => {
             // Replace any "NaN" occurrences with a valid value, such as `null`
@@ -47,6 +50,44 @@ export const getExifDataFromImage = async (imagePath: string) => {
                 console.error('Failed to parse the workflow field:', error);
             }
         }
+        if (metadata.parameters && typeof metadata.parameters === 'string') {
+            const paramsString = metadata.parameters;
+
+            // Split based on 'Negative prompt:'
+            const [positivePromptPart, rest] = paramsString.split('Negative prompt:');
+
+            // Extract the negative part (if it exists) and additional details
+            const [negativePromptPart, ...details] = rest ? rest.split('\n') : [''];
+
+            // Build key-value pairs
+            const result: RawAutomatic1111ParametersJson = {
+                "Positive prompt": positivePromptPart.trim(),
+                "Negative prompt": negativePromptPart.trim(),
+            };
+
+            // Function to split key-value pairs while considering potential commas in values
+            const keyValuePattern = /([a-zA-Z\s]+?):\s*(.+?)(?=, [a-zA-Z\s]+?:|$)/g;
+
+            // Extract remaining key-value pairs from the details section
+            details.forEach((detail) => {
+                const trimmedDetail = detail.trim();
+        
+                let match;
+                // Extract key-value pairs using regex
+                while ((match = keyValuePattern.exec(trimmedDetail)) !== null) {
+                    const key = match[1];
+                    const value = match[2];
+        
+                    if (key && value !== undefined) {
+                        // Try to parse the value as a number if it is numeric, otherwise keep it as a string
+                        const numericValue = parseFloat(value);
+                        (result as any)[key.trim() as keyof RawAutomatic1111ParametersJson] = isNaN(numericValue) ? value.trim() : numericValue;
+                    }
+                }
+            });
+
+            metadata.parameters = result;
+        }
         
         return { success: true, metadata };
     } catch (error) {
@@ -58,9 +99,13 @@ export const getExifDataFromImage = async (imagePath: string) => {
     }
 };
 
-export const extractCkptNamesFromExifData = (jsonData: RawComfyUIJson) => {
-    const ckpts = [];
+export const extractCkptNamesFromExifData = (jsonData: RawExifJson) => {
+    const ckpts: { comfyUI: CheckpointLoaderSimpleInput[], auto1111: Auto1111CheckpointInput[] } = {
+        comfyUI: [],
+        auto1111: []
+    };
 
+    // COMFYUI
     // Ensure 'prompt' is an object, not a string
     if (typeof jsonData.prompt === 'object') {
         // Loop through each key in the 'prompt' object
@@ -71,8 +116,25 @@ export const extractCkptNamesFromExifData = (jsonData: RawComfyUIJson) => {
                 // Check if class_type is 'CheckpointLoaderSimple'
                 if (promptEntry.class_type === 'CheckpointLoaderSimple') {
                     promptEntry.inputs.key = key;
-                    ckpts.push(promptEntry.inputs);
+                    const cleanedName = promptEntry.inputs.ckpt_name.split('\\').pop();
+                    if (cleanedName !== undefined) {
+                        promptEntry.inputs.ckpt_name = cleanedName;
+                    }
+                    ckpts.comfyUI.push(promptEntry.inputs);
                 }
+            }
+        }
+    }
+
+    // AUTOMATIC1111
+    // Ensure 'parameters' is an object, not a string
+    if (typeof jsonData.parameters === 'object') {
+        // Loop through each key in the 'parameters' object
+        for (const key in jsonData.parameters) {
+            if (key === 'Model') {
+                const chkpt = jsonData.parameters[key];
+                const chkptObj: Auto1111CheckpointInput = { ckpt_name: chkpt! + '.safetensors', key };
+                ckpts.auto1111.push(chkptObj);
             }
         }
     }
@@ -80,9 +142,13 @@ export const extractCkptNamesFromExifData = (jsonData: RawComfyUIJson) => {
     return ckpts;
 };
 
-export const extractPromptsFromExifData = (jsonData: RawComfyUIJson) => {
-    const prompts = [];
+export const extractPromptsFromExifData = (jsonData: RawExifJson) => {
+    const prompts: { comfyUI: CLIPTextEncodeInput[], auto1111: Auto1111PromptInput[] } = {
+        comfyUI: [],
+        auto1111: []
+    };
 
+    // COMFYUI
     // Ensure 'prompt' is an object, not a string
     if (typeof jsonData.prompt === 'object') {
         // Loop through each key in the 'prompt' object
@@ -93,8 +159,31 @@ export const extractPromptsFromExifData = (jsonData: RawComfyUIJson) => {
                 // Check if class_type is 'CLIPTextEncode'
                 if (promptEntry.class_type === 'CLIPTextEncode') {
                     promptEntry.inputs.key = key;
-                    prompts.push(promptEntry.inputs);
+                    prompts.comfyUI.push(promptEntry.inputs);
                 }
+            }
+        }
+    }
+
+    // AUTOMATIC1111
+    // Ensure 'parameters' is an object, not a string
+    if (typeof jsonData.parameters === 'object') {
+        // Loop through each key in the 'parameters' object
+        for (const key in jsonData.parameters) {
+            if (key === 'Positive prompt') {
+                const prompt = jsonData.parameters[key];
+                const promptObj: Auto1111PromptInput = { text: prompt, key };
+                prompts.auto1111.push(promptObj);
+            }
+            if (key === 'Hires prompt') {
+                const prompt = jsonData.parameters[key]!;
+                const promptObj: Auto1111PromptInput = { text: prompt, key };
+                prompts.auto1111.push(promptObj);
+            }
+            if (key === 'Negative prompt') {
+                const prompt = jsonData.parameters[key];
+                const promptObj: Auto1111PromptInput = { text: prompt, key };
+                prompts.auto1111.push(promptObj);
             }
         }
     }
@@ -102,9 +191,13 @@ export const extractPromptsFromExifData = (jsonData: RawComfyUIJson) => {
     return prompts;
 };
 
-export const extractLoraNamesFromExifData = (jsonData: RawComfyUIJson) => {
-    const loras: LoraBase[] = [];
+export const extractLoraNamesFromExifData = (jsonData: RawExifJson) => {
+    const loras: { comfyUI: LoraBase[], auto1111: LoraBase[] } = {
+        comfyUI: [],
+        auto1111: []
+    };
 
+    // COMFYUI
     // Ensure 'prompt' is an object, not a string
     if (typeof jsonData.prompt === 'object') {
         // Loop through each key in the 'prompt' object
@@ -115,10 +208,14 @@ export const extractLoraNamesFromExifData = (jsonData: RawComfyUIJson) => {
                 // Check if class_type is a LoRA type
                 if (promptEntry.class_type === 'LoraLoader') {
                     const { lora_name, strength_model, strength_clip } = promptEntry.inputs;
-                    const newLora = { lora_name, strength_model, strength_clip };
+                    const newLora = {
+                        lora_name: lora_name.split('\\').pop()!,
+                        strength_model,
+                        strength_clip
+                    };
                     
-                    if (isLoraUnique(loras, newLora)) {
-                        loras.push(newLora);
+                    if (isLoraUnique(loras.comfyUI, newLora)) {
+                        loras.comfyUI.push(newLora);
                     }
                 } else if (promptEntry.class_type === 'CR LoRA Stack') {
                     const {
@@ -131,34 +228,73 @@ export const extractLoraNamesFromExifData = (jsonData: RawComfyUIJson) => {
                     // Push entries only if their corresponding switch is 'On'
                     if (switch_1 === 'On') {
                         const newLora = {
-                            lora_name: lora_name_1,
+                            lora_name: lora_name_1.split('\\').pop()!,
                             strength_model: model_weight_1,
                             strength_clip: clip_weight_1
                         };
-                        if (isLoraUnique(loras, newLora)) {
-                            loras.push(newLora);
+                        if (isLoraUnique(loras.comfyUI, newLora)) {
+                            loras.comfyUI.push(newLora);
                         }
                     }
                     if (switch_2 === 'On') {
                         const newLora = {
-                            lora_name: lora_name_2,
+                            lora_name: lora_name_2.split('\\').pop()!,
                             strength_model: model_weight_2,
                             strength_clip: clip_weight_2
                         };
-                        if (isLoraUnique(loras, newLora)) {
-                            loras.push(newLora);
+                        if (isLoraUnique(loras.comfyUI, newLora)) {
+                            loras.comfyUI.push(newLora);
                         }
                     }
                     if (switch_3 === 'On') {
                         const newLora = {
-                            lora_name: lora_name_3,
+                            lora_name: lora_name_3.split('\\').pop()!,
                             strength_model: model_weight_3,
                             strength_clip: clip_weight_3
                         };
-                        if (isLoraUnique(loras, newLora)) {
-                            loras.push(newLora);
+                        if (isLoraUnique(loras.comfyUI, newLora)) {
+                            loras.comfyUI.push(newLora);
                         }
                     }
+                }
+            }
+        }
+    }
+
+    // AUTOMATIC1111
+    // Ensure 'parameters' is an object, not a string
+    if (typeof jsonData.parameters === 'object') {
+        // Loop through each key in the 'parameters' object
+        for (const paramKey in jsonData.parameters) {
+            if (paramKey === 'Lora hashes') {
+                const loraHashesString = jsonData.parameters[paramKey];
+                if (loraHashesString !== undefined) {
+                    // Get prompt strings
+                    const prompts = extractPromptsFromExifData(jsonData);
+
+                    // Use a regular expression to match the keys (before the colon)
+                    const loraStrings = loraHashesString.match(/(\w+):/g)?.map(key => key.replace(':', '.safetensors'));
+                    loraStrings?.forEach((loraString) => {
+                        const loraName = loraString.split('.')[0]; // Extract lora name by splitting at the dot
+
+                        // Regex to find <lora:lora_name:strength> in the prompt
+                        const regex = new RegExp(`<lora:${loraName}:(\\d+\\.?\\d*)>`);
+
+                        // Loop through all the prompt strings in the prompts array
+                        prompts.auto1111.forEach((prompt) => {
+                            const match = prompt.text.match(regex);
+                            if (match) {
+                                const newLora: LoraBase = {
+                                    lora_name: loraString, // Use loraString as we want the filename
+                                    strength_model: parseFloat(match[1]),
+                                    strength_clip: parseFloat(match[1]),
+                                };
+                                if (isLoraUnique(loras.auto1111, newLora)) {
+                                    loras.auto1111.push(newLora);
+                                }
+                            }
+                        });
+                    });
                 }
             }
         }
@@ -167,7 +303,7 @@ export const extractLoraNamesFromExifData = (jsonData: RawComfyUIJson) => {
     return loras;
 };
 
-export const extractKsamplersFromExifData = (jsonData: RawComfyUIJson) => {
+export const extractKsamplersFromExifData = (jsonData: RawExifJson) => {
     const ckptNames = [];
 
     // Ensure 'prompt' is an object, not a string
@@ -191,7 +327,7 @@ export const extractKsamplersFromExifData = (jsonData: RawComfyUIJson) => {
 export const getCheckpointIdsForKSamplers = (
     kSamplers: KsamplerInput[],
     ckptsWithIds: (CheckpointLoaderSimpleInput & { id: number })[],
-    jsonData: RawComfyUIJson
+    jsonData: RawExifJson
 ): number[] => {
     // Helper function to recursively find the checkpoint ID
     const findCheckpointId = (modelKey: string): number | null => {
@@ -228,7 +364,7 @@ export const getCheckpointIdsForKSamplers = (
 export const getPromptIdsForKSamplers = (
     kSamplers: KsamplerInput[],
     promptsWithIds: (CLIPTextEncodeInput & { id: number })[],
-    jsonData: RawComfyUIJson
+    jsonData: RawExifJson
 ): { positivePromptIds: number[][], negativePromptIds: number[][] } => {
     // Helper function to recursively find the prompt ID
     const findPromptIds = (promptKey: string, targetNode: string): number[] | null => {
@@ -306,7 +442,7 @@ export const getPromptIdsForKSamplers = (
 
 export const getSeedsForKSamplers = (
     kSamplers: KsamplerInput[],
-    jsonData: RawComfyUIJson
+    jsonData: RawExifJson
 ): number[] => {
     // Helper function to recursively find the seed
     const findSeed = (seedKey: string): number | null => {

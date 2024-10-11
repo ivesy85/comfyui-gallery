@@ -1,7 +1,25 @@
 import { connectionPool } from '@/db';
-import { CLIPTextEncodeInput } from '../generations/definitions';
+import { Auto1111PromptInput, CLIPTextEncodeInput } from '../generations/definitions';
 
-export async function getOrCreatePrompts(prompts: CLIPTextEncodeInput[]): Promise<Array<CLIPTextEncodeInput & { id: number }>> {
+export async function getOrCreateComfyPrompts(prompts: CLIPTextEncodeInput[]): Promise<Array<CLIPTextEncodeInput & { id: number }>> {
+    const ids = await getOrCreatePrompts(prompts);
+
+    return prompts.map((prompt) => ({
+        ...prompt,
+        id: ids[prompt.text],
+    }));
+}
+
+export async function getOrCreateAuto1111Prompts(prompts: Auto1111PromptInput[]): Promise<Array<Auto1111PromptInput & { id: number }>> {
+    const ids = await getOrCreatePrompts(prompts);
+
+    return prompts.map((prompt) => ({
+        ...prompt,
+        id: ids[prompt.text],
+    }));
+}
+
+async function getOrCreatePrompts(prompts: { text: string }[]) {
     const ids: Record<string, number> = {}; // Object to store ids with names as keys
 
     // Extract prompts
@@ -41,11 +59,7 @@ export async function getOrCreatePrompts(prompts: CLIPTextEncodeInput[]): Promis
         });
     }
 
-    // Step 4: Return the updated prompts array with ids
-    return prompts.map((prompt) => ({
-        ...prompt,
-        id: ids[prompt.text],
-    }));
+    return ids;
 }
 
 export async function linkPositivePromptsToKSampler(positivePromptIds: number[][], savedKSamplerIds: number[]): Promise<void> {

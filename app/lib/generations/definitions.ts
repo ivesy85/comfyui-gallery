@@ -10,7 +10,7 @@ export type Generation = {
     rating: number | null;
     date_created: string;
     size: number;
-    raw_json: RawComfyUIJson;
+    raw_json: RawExifJson;
 };
 
 export type Prompt = {
@@ -31,7 +31,7 @@ export type KSampler = {
     denoise: number;
 };
 
-export type RawComfyUIJson = {
+export type RawExifJson = {
     ImageWidth: number;
     ImageHeight: number;
     BitDepth: number;
@@ -40,8 +40,28 @@ export type RawComfyUIJson = {
     Filter: string;
     Interlace: string;
     DateTimeOriginal: Date | undefined;
-    prompt: string | {[key: string]: RawComfyUIPromptJson};
-    workflow: string;
+    prompt?: string | {[key: string]: RawComfyUIPromptJson};
+    workflow?: string;
+    parameters?: string | RawAutomatic1111ParametersJson;
+};
+
+export type RawAutomatic1111ParametersJson = {
+    "Positive prompt": string;
+    "Hires prompt"?: string;
+    "Negative prompt": string;
+    Steps?: number;
+    Sampler?: number;
+    "CFG scale"?: number;
+    Seed?: number;
+    Size?: string;
+    "Model hash"?: string;
+    Model?: string;
+    "Denoising strength"?: number;
+    "Clip skip"?: number;
+    "Token merging ratio"?: number;
+    NGMS?: number;
+    "Lora hashes"?: string;
+    Version?: string;
 };
 
 export type RawComfyUIPromptJson = 
@@ -75,6 +95,11 @@ export type RawComfyUIPromptJson =
     };
 
     export type CheckpointLoaderSimpleInput = {
+        key?: string;
+        ckpt_name: string;
+    };
+
+    export type Auto1111CheckpointInput = {
         key?: string;
         ckpt_name: string;
     };
@@ -130,10 +155,15 @@ export type RawComfyUIPromptJson =
         lora_name: string;
         strength_model: number;
         strength_clip: number;
-    }
+    };
 
     export type CLIPTextEncodeInput = {
         key?: string;
         text: string;
         clip: [string, number];
+    };
+
+    export type Auto1111PromptInput = {
+        key?: string;
+        text: string;
     };
