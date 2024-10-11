@@ -1,4 +1,5 @@
 import Image from 'next/image';
+import Link from 'next/link';
 import { fetchFilteredGenerations } from '@/app/lib/generations/data';
 
 export default async function GenerationsGallery({
@@ -23,14 +24,19 @@ export default async function GenerationsGallery({
                             key={generation.id}
                             className="relative w-full h-0 pb-[100%] rounded-md overflow-hidden"
                         >
-                            <Image
-                                src={`/api/images/${encodeURIComponent(generation.file_location)}`}
-                                alt={generation.name}
-                                priority
-                                fill
-                                style={{objectFit:"cover"}}
-                                sizes="20vw"
-                            />
+                            <Link
+                                key={generation.name}
+                                href={'/dashboard/generations/' + generation.id + '/view'}
+                            >
+                                <Image
+                                    src={`/api/images/${encodeURIComponent(generation.file_location)}`}
+                                    alt={generation.name}
+                                    priority
+                                    fill
+                                    style={{objectFit:"cover"}}
+                                    sizes="20vw"
+                                />
+                            </Link>
                         </div>
                     ))}
                 </div>

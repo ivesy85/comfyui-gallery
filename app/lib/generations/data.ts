@@ -145,6 +145,36 @@ export async function fetchFilteredGenerations(
     }
 }
 
+export async function fetchGenerationData(generationId: string) {
+    try {
+        const result = await connectionPool.query<Generation>(
+            `
+                SELECT
+                    generations.id,
+                    generations.file_type_id,
+                    generations.source,
+                    generations.name,
+                    generations.file_location,
+                    generations.width,
+                    generations.height,
+                    generations.framerate,
+                    generations.rating,
+                    generations.date_created,
+                    generations.size,
+                    generations.raw_json
+                FROM generations
+                WHERE id = $1
+            `, 
+            [generationId]
+        );
+
+        return result.rows[0] || null; 
+    } catch (error) {
+        console.error('Database Error:', error);
+        throw new Error('Failed to fetch generation.');
+    }
+}
+
 export async function fetchGenerationsPages(
     exif: string,
     checkpoints: string,
