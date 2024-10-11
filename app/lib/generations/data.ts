@@ -8,8 +8,10 @@ import {
     extractLoraNamesFromExifData,
     extractPromptsFromExifData,
     extractKsamplersFromExifData,
+    extractNodeNamesFromExifData,
 } from './utils';
 import { getOrCreateFileType } from '@/app/lib/file-types/data';
+import { saveNodesIfNotExisting } from '@/app/lib/nodes/data';
 import { 
     getOrCreateComfyCheckpoints,
     getOrCreateAuto1111Checkpoints,
@@ -48,6 +50,7 @@ function constructGenerationsQuery(
             SELECT
                 generations.id,
                 generations.file_type_id,
+                generations.source,
                 generations.name,
                 generations.file_location,
                 generations.width,
@@ -202,10 +205,16 @@ export async function fetchGenerationsPages(
 
         const metadata = exifResult.metadata;
 
+        // Extract and save CoomfyUI Nodes used
+        const nodes = extractNodeNamesFromExifData(exifResult.metadata);
+        await saveNodesIfNotExisting(nodes);
+
         // Save or get Checkpoints
         const ckpts = extractCkptNamesFromExifData(exifResult.metadata);
         const comfyCkptsWithIds = ckpts.comfyUI.length > 0 ? await getOrCreateComfyCheckpoints(ckpts.comfyUI) : [];
         const auto1111CkptsWithIds = ckpts.auto1111.length > 0 ? await getOrCreateAuto1111Checkpoints(ckpts.auto1111) : [];
+
+        const source = typeof exifResult.metadata.prompt === 'object' ? 'ComfyUI' : 'Automatic1111';
 
         // Save or get Loras
         const loras = extractLoraNamesFromExifData(exifResult.metadata);
@@ -238,6 +247,7 @@ export async function fetchGenerationsPages(
         const result = await connectionPool.query<{ id: number }>(
             `INSERT INTO generations (
                 file_type_id,
+                source,
                 name,
                 file_location,
                 width,
@@ -245,8 +255,8 @@ export async function fetchGenerationsPages(
                 date_created,
                 size,
                 raw_json
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id`,
-            [file_type_id, name, fileLocation, width, height, imageCreationDate, size, rawJson]
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id`,
+            [file_type_id, source, name, fileLocation, width, height, imageCreationDate, size, rawJson]
         );
         generationId = result.rows[0].id;
 

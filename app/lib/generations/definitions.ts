@@ -2,6 +2,7 @@
 export type Generation = {
     id: number;
     file_type_id: number;
+    source: string;
     name: string;
     file_location: string;
     width: number;

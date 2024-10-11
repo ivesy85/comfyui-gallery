@@ -99,6 +99,28 @@ export const getExifDataFromImage = async (imagePath: string) => {
     }
 };
 
+export const extractNodeNamesFromExifData = (jsonData: RawExifJson) => {
+    const nodes: string[] = [];
+
+    // COMFYUI
+    // Ensure 'prompt' is an object, not a string
+    if (typeof jsonData.prompt === 'object') {
+        // Loop through each key in the 'prompt' object
+        for (const key in jsonData.prompt) {
+            if (jsonData.prompt.hasOwnProperty(key)) {
+                const promptEntry = jsonData.prompt[key];
+
+                // Only push the class_type if it isn't already in the nodes array
+                if (promptEntry.class_type && !nodes.includes(promptEntry.class_type)) {
+                    nodes.push(promptEntry.class_type);
+                }
+            }
+        }
+    }
+
+    return nodes;
+};
+
 export const extractCkptNamesFromExifData = (jsonData: RawExifJson) => {
     const ckpts: { comfyUI: CheckpointLoaderSimpleInput[], auto1111: Auto1111CheckpointInput[] } = {
         comfyUI: [],
