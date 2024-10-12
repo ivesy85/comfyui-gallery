@@ -1,6 +1,7 @@
 import { connectionPool } from '@/db';
 import {
     KsamplerInput,
+    KSampler,
     CheckpointLoaderSimpleInput,
     CLIPTextEncodeInput,
     RawExifJson,
@@ -13,6 +14,34 @@ import {
     getSeedsForKSamplers,
 } from '../generations/utils';
 import { linkNegativePromptsToKSampler, linkPositivePromptsToKSampler } from '../prompts/data';
+
+export async function fetchKSamplerData(generationId: string) {
+    try {
+        const result = await connectionPool.query<KSampler>(
+            `
+                SELECT
+                    k_samplers.id,
+                    k_samplers.checkpoint_id,
+                    k_samplers.seed,
+                    k_samplers.steps,
+                    k_samplers.cfg,
+                    k_samplers.sampler_name,
+                    k_samplers.scheduler,
+                    k_samplers.denoise
+                FROM generation_k_samplers
+                INNER JOIN k_samplers
+                    ON generation_k_samplers.k_sampler_id = k_samplers.id
+                WHERE generation_k_samplers.generation_id = $1
+            `, 
+            [generationId]
+        );
+
+        return result.rows; 
+    } catch (error) {
+        console.error('Database Error:', error);
+        throw new Error('Failed to fetch ksamplers.');
+    }
+}
 
 export async function createComfyKSamplers(
     kSamplers: KsamplerInput[], 

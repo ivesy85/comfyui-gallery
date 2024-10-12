@@ -22,8 +22,6 @@ export type Prompt = {
 export type KSampler = {
     id?: number;
     checkpoint_id: number;
-    positive_prompt_id: number;
-    negative_prompt_id: number;
     seed: number;
     steps: number;
     cfg: number;

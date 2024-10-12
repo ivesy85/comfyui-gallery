@@ -1,5 +1,6 @@
 import { fetchGenerationData } from '@/app/lib/generations/data';
-import { Generation } from '@/app/lib/generations/definitions';
+import { fetchKSamplerData } from '@/app/lib/ksamplers/data';
+import { Generation, KSampler } from '@/app/lib/generations/definitions';
 import Image from 'next/image';
 
 export default async function Page({
@@ -11,6 +12,7 @@ export default async function Page({
     const generationId = awaitedParaams.id;
 
     const generation: Generation = await fetchGenerationData(generationId);
+    const kSamplers: KSampler[] = await fetchKSamplerData(generationId);
 
     if (!generation) {
         return (
@@ -31,19 +33,50 @@ export default async function Page({
                     <p>{generation.file_location}</p>
 
                     <div className="mt-8">
-                    <div className="flex justify-between">
-                        <span className="font-bold">Source:</span>
-                        <span>{generation.source}</span>
+                        <div className="flex justify-between">
+                            <span className="font-bold">Source:</span>
+                            <span>{generation.source}</span>
+                        </div>
+                        <div className="flex justify-between">
+                            <span className="font-bold">Height:</span>
+                            <span>{generation.height}</span>
+                        </div>
+                        <div className="flex justify-between">
+                            <span className="font-bold">Width:</span>
+                            <span>{generation.width}</span>
+                        </div>
                     </div>
-                    <div className="flex justify-between">
-                        <span className="font-bold">Height:</span>
-                        <span>{generation.height}</span>
+                    <div className="mt-8">
+                        <p>KSamplers</p>
+                        {kSamplers?.map((kSampler) => (
+                            <div className="mt-4">
+                                <div className="flex justify-between">
+                                    <span className="font-bold">Seed:</span>
+                                    <span>{kSampler.seed}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                    <span className="font-bold">CFG:</span>
+                                    <span>{kSampler.cfg}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                    <span className="font-bold">Steps:</span>
+                                    <span>{kSampler.steps}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                    <span className="font-bold">Sampler:</span>
+                                    <span>{kSampler.sampler_name}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                    <span className="font-bold">Scheduler:</span>
+                                    <span>{kSampler.scheduler}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                    <span className="font-bold">Denoise:</span>
+                                    <span>{kSampler.denoise}</span>
+                                </div>
+                            </div>
+                        ))}
                     </div>
-                    <div className="flex justify-between">
-                        <span className="font-bold">Width:</span>
-                        <span>{generation.width}</span>
-                    </div>
-                </div>
                 </div>
             </div>
             
