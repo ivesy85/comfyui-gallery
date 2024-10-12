@@ -2,6 +2,7 @@ import { fetchGenerationData } from '@/app/lib/generations/data';
 import { fetchKSamplerData } from '@/app/lib/ksamplers/data';
 import { Generation, KSampler } from '@/app/lib/generations/definitions';
 import Image from 'next/image';
+import EscapeListener from '@/components/escape_listner';
 
 export default async function Page({
     params
@@ -24,6 +25,8 @@ export default async function Page({
 
     return (
         <div className="w-full h-[calc(100vh-6rem)] flex"> {/* Adjust for parent padding */}
+            {/* Include the EscapeListener client-side component */}
+            <EscapeListener />
             {/* Left Panel */}
             <div className="w-1/2 p-4 h-full flex-col items-center justify-center">
                 {/* Add your text or content here */}
