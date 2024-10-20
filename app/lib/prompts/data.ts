@@ -70,25 +70,31 @@ export async function linkPositivePromptsToKSampler(positivePromptIds: number[][
     // Construct the query to insert links between KSamplers and prompts
     let counter = 1;
 
-    // Generate the value placeholders with correct numbering for each (k_sampler_id, prompt_id) pair
-    const valuePlaceholders = positivePromptIds
-    .map((prompts) => 
-        prompts.map(() => `($${counter++}, $${counter++})`).join(', ')
-    )
-    .join(', ');
-    
-    const insertQuery = `
-        INSERT INTO k_sampler_positive_prompts (k_sampler_id, prompt_id)
-        VALUES ${valuePlaceholders}
-    `;
-    
-    // Flatten the arrays to build the values array that corresponds to the placeholders
+    // Create a Set to store unique (k_sampler_id, prompt_id) pairs
+    const uniquePairs = new Set<string>();
+
+    const valuePlaceholders: string[] = [];
     const insertParams: number[] = [];
+
     positivePromptIds.forEach((prompts, i) => {
         prompts.forEach((promptId) => {
+          const pairKey = `${savedKSamplerIds[i]}-${promptId}`;
+          if (!uniquePairs.has(pairKey)) {
+            uniquePairs.add(pairKey);
+            valuePlaceholders.push(`($${counter++}, $${counter++})`);
             insertParams.push(savedKSamplerIds[i], promptId);
+          }
         });
-    });
+      });
+    
+      if (valuePlaceholders.length === 0) {
+        return; // No unique pairs to insert
+      }
+    
+      const insertQuery = `
+        INSERT INTO k_sampler_positive_prompts (k_sampler_id, prompt_id)
+        VALUES ${valuePlaceholders.join(', ')}
+    `;
 
     // Execute the query
     await connectionPool.query(insertQuery, insertParams);
