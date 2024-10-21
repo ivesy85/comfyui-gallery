@@ -6,14 +6,16 @@ export default async function GenerationsGallery({
     exif,
     checkpoints,
     loras,
+    nodes,
     currentPage,
 }: {
     exif: string;
     checkpoints: string;
     loras: string;
+    nodes: string;
     currentPage: number;
 }) {
-  const generations = await fetchFilteredGenerations(exif, checkpoints, loras, currentPage);
+  const generations = await fetchFilteredGenerations(exif, checkpoints, loras, nodes, currentPage);
 
     return (
         <div className="mt-6 flow-root">

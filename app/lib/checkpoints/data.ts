@@ -5,9 +5,10 @@ import { getOrCreateFileType } from '@/app/lib/file-types/data';
 export async function getListOfCheckpoints(
     exif: string,
     checkpoints: string,
-    loras: string
+    loras: string,
+    nodes: string
 ) {
-    if (!exif && !checkpoints && !loras) {
+    if (!exif && !checkpoints && !loras && !nodes) {
         try {
             const result = await connectionPool.query<{value: string, label: string}>(`
                 SELECT
@@ -73,6 +74,30 @@ export async function getListOfCheckpoints(
             ON generations.id = lora_filter.generation_id
         `;
         params.push(loraIds);
+    }
+
+    if (nodes) {
+        const nodeStrings = decodeURIComponent(nodes)
+            .split(',');
+        joins += `
+            JOIN (
+                SELECT
+                    generations.id AS generation_id
+                FROM
+                    generations,
+                    LATERAL jsonb_each(raw_json->'prompt') AS prompt(key, jsonb_value)
+                WHERE
+                    jsonb_value->>'class_type' IS NOT NULL
+                    AND jsonb_typeof(raw_json->'prompt') = 'object'
+                    AND jsonb_value->>'class_type' IN (${nodeStrings.map((_, i) => `$${params.length + 1 + i}`).join(', ')})
+                GROUP BY
+                    generations.id  -- Group by generation ID
+                HAVING
+                    COUNT(DISTINCT jsonb_value->>'class_type') = ${nodeStrings.length}
+            ) node_filter
+            ON generations.id = node_filter.generation_id
+        `;
+        nodeStrings.forEach((nodeString) => params.push(nodeString));
     }
 
     if (joins) {

@@ -39,6 +39,7 @@ function constructGenerationsQuery(
     exif: string,
     checkpoints: string,
     loras: string,
+    nodes: string,
     currentPage?: number
 ) {
     let query = '';
@@ -109,6 +110,30 @@ function constructGenerationsQuery(
         params.push(loraIds);
     }
 
+    if (nodes) {
+        const nodeStrings = decodeURIComponent(nodes)
+            .split(',');
+        joins += `
+            JOIN (
+                SELECT
+                    generations.id AS generation_id
+                FROM
+                    generations,
+                    LATERAL jsonb_each(raw_json->'prompt') AS prompt(key, jsonb_value)
+                WHERE
+                    jsonb_value->>'class_type' IS NOT NULL
+                    AND jsonb_typeof(raw_json->'prompt') = 'object'
+                    AND jsonb_value->>'class_type' IN (${nodeStrings.map((_, i) => `$${params.length + 1 + i}`).join(', ')})
+                GROUP BY
+                    generations.id  -- Group by generation ID
+                HAVING
+                    COUNT(DISTINCT jsonb_value->>'class_type') = ${nodeStrings.length}
+            ) node_filter
+            ON generations.id = node_filter.generation_id
+        `;
+        nodeStrings.forEach((nodeString) => params.push(nodeString));
+    }
+
     if (joins) {
         query += joins;
     }
@@ -131,9 +156,10 @@ export async function fetchFilteredGenerations(
     exif: string,
     checkpoints: string,
     loras: string,
+    nodes: string,
     currentPage: number
 ) {
-    const { query, params } = constructGenerationsQuery(false, exif, checkpoints, loras, currentPage);
+    const { query, params } = constructGenerationsQuery(false, exif, checkpoints, loras, nodes, currentPage);
 
     try {
         const result = await connectionPool.query<Generation>(query, params);
@@ -178,9 +204,10 @@ export async function fetchGenerationData(generationId: string) {
 export async function fetchGenerationsPages(
     exif: string,
     checkpoints: string,
-    loras: string
+    loras: string,
+    nodes: string
 ) {
-    const { query, params } = constructGenerationsQuery(true, exif, checkpoints, loras);
+    const { query, params } = constructGenerationsQuery(true, exif, checkpoints, loras, nodes);
 
     try {
         const count = await connectionPool.query(query, params);
